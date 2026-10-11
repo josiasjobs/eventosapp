@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>EventosAPP — Operação & Direção de Eventos ao Vivo</title>
+  <meta name="description"
+    content="Aplicação local para operação e gerenciamento em tempo real de eventos ao vivo, mídias e programação em rede local.">
+  <meta name="theme-color" content="#090d16">
+
+  <!-- Google Fonts (Inter & Outfit) with graceful local offline fallbacks in CSS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/director.css">
+  <link rel="stylesheet" href="css/editor.css">
+</head>
+
+<body>
+
+  <div id="app">
+    <!-- APP HEADER -->
+    <header class="app-header" id="main-header">
+      <!-- Left: Brand & Event Name -->
+      <div class="header-left">
+        <a href="#" class="brand-badge" id="brand-logo-link" onclick="location.reload(); return false;">
+          <div class="brand-logo-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+          </div>
+          <div class="brand-text-group">
+            <span class="brand-title">EventosAPP</span>
+            <span class="event-name-tag" id="header-event-name">Carregando...</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Center: Day & Shift Selectors -->
+      <div class="header-center">
+        <div class="context-selector-group" id="context-selector-container">
+          <div class="select-wrapper">
+            <select id="select-day" aria-label="Selecione o dia do evento">
+              <option value="">Dia...</option>
+            </select>
+            <svg class="select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+
+          <div class="selector-separator"></div>
+
+          <div class="select-wrapper">
+            <select id="select-shift" aria-label="Selecione o turno">
+              <option value="">Turno...</option>
+            </select>
+            <svg class="select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Desktop Actions & Mobile Hamburger Menu -->
+      <div class="header-right" style="position: relative;">
+        <!-- Desktop Actions (Visible on larger screens) -->
+        <div class="header-actions-desktop">
+          <!-- Sync Status & LAN Pairing Button -->
+          <div class="sync-badge online" id="sync-status-badge" onclick="Modals.openLanModal()"
+            title="Clique para ver o QR Code de conexão LAN">
+            <span class="sync-dot"></span>
+            <span id="sync-status-text">Conectado (LAN)</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </div>
+
+          <!-- Mode Toggle Button (Diretor <-> Edição) -->
+          <button class="mode-switch-btn" id="btn-mode-toggle"
+            title="Alternar entre Modo Diretor e Modo Edição [Tecla E]">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+            <span class="mode-btn-text">Modo Edição</span>
+          </button>
+
+          <!-- Settings Modal Trigger (In Edit Mode) -->
+          <button class="btn btn-icon btn-secondary edit-only" id="btn-open-settings"
+            onclick="Modals.openSettingsModal()" title="Configurações do Evento">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+              </path>
+            </svg>
+          </button>
+
+          <!-- Logout Button -->
+          <button class="btn btn-icon btn-ghost" id="btn-logout" onclick="Api.logout()" title="Encerrar Sessão">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Mobile Hamburger Button -->
+        <button class="btn btn-icon btn-secondary mobile-menu-btn" id="btn-mobile-menu-toggle"
+          aria-label="Abrir menu de opções" onclick="toggleMobileMenu(event)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
+        <!-- Mobile Dropdown Menu -->
+        <div class="mobile-header-menu" id="mobile-header-menu">
+          <button class="mobile-menu-item" onclick="Modals.openLanModal(); closeMobileMenu();">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="sync-dot" id="mobile-sync-dot"
+                style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--color-live);"></span>
+              <span id="mobile-sync-text">Conexão LAN & QR Code</span>
+            </div>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </button>
+
+          <button class="mobile-menu-item" id="mobile-btn-mode-toggle" onclick="toggleMode(); closeMobileMenu();">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+              <span id="mobile-mode-btn-text">Modo Edição</span>
+            </div>
+          </button>
+
+          <button class="mobile-menu-item edit-only" onclick="Modals.openSettingsModal(); closeMobileMenu();">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                </path>
+              </svg>
+              <span>Configurações</span>
+            </div>
+          </button>
+
+          <button class="mobile-menu-item" style="color: var(--color-danger);"
+            onclick="Api.logout(); closeMobileMenu();">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              <span>Encerrar Sessão</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN OPERATIONAL VIEW -->
+    <main class="main-content" id="main-content">
+      <!-- Edit Mode Notification Banner -->
+      <div class="mode-notification-banner" id="mode-banner">
+        <div class="banner-left">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>Modo Edição Ativo — Todas as alterações de itens e mídias são sincronizadas em tempo real na rede
+            local.</span>
+        </div>
+        <div class="banner-right">
+          <button class="btn btn-sm btn-primary" id="banner-btn-director">Voltar para Modo Diretor</button>
+        </div>
+      </div>
+
+      <!-- Director Operational Grid (Telas grandes: Programação na Esquerda, Mídias/Spotlight na Direita) -->
+      <section class="director-grid" id="director-operational-grid">
+        <!-- Coluna Esquerda: Linha do Tempo / Programação do Turno -->
+        <div class="director-col-timeline">
+          <div id="timeline-container">
+            <!-- Rendered by ui-director.js -->
+          </div>
+        </div>
+
+        <!-- Coluna Direita: Item Atual em Destaque, Mídias & Controles do Diretor -->
+        <div class="director-col-spotlight">
+          <div id="spotlight-container">
+            <!-- Rendered by ui-director.js -->
+          </div>
+
+          <div id="director-nav-container">
+            <!-- Rendered by ui-director.js -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TOAST NOTIFICATIONS CONTAINER -->
+    <div id="toast-container"></div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 1: INITIAL SETUP (RF-01)                 -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-initial-setup">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title">Configuração Inicial do Evento</h2>
+      </div>
+      <form id="form-initial-setup" onsubmit="event.preventDefault(); Modals.submitSetup(this);">
+        <div class="modal-body">
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px;">
+            Configure as informações iniciais para ativar o EventosAPP neste servidor local.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="setup-event-name">Nome do Evento *</label>
+            <input type="text" class="form-input" id="setup-event-name" name="eventName"
+              placeholder="Ex: Conferência Transformados 2026" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setup-category">Categoria / Descrição curta</label>
+            <input type="text" class="form-input" id="setup-category" name="category"
+              placeholder="Ex: Congresso Anual, Culto Especial, Seminário">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="setup-day-label">Primeiro Dia (Rótulo)</label>
+              <input type="text" class="form-input" id="setup-day-label" name="firstDayLabel" value="Dia 1 - Abertura">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setup-day-date">Data</label>
+              <input type="date" class="form-input" id="setup-day-date" name="firstDayDate">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setup-shift-name">Primeiro Turno</label>
+            <input type="text" class="form-input" id="setup-shift-name" name="firstShiftName" value="Geral">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="setup-dir-pin">PIN do Diretor (4 a 8 dígitos) *</label>
+              <input type="password" class="form-input" id="setup-dir-pin" name="directorPin" pattern="[0-9]{4,8}"
+                placeholder="Ex: 1234" required>
+              <span class="form-hint">Para operadores que acompanham e marcam mídias.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setup-adm-pin">PIN de Edição/Admin (4 a 8 dígitos) *</label>
+              <input type="password" class="form-input" id="setup-adm-pin" name="adminPin" pattern="[0-9]{4,8}"
+                placeholder="Ex: 8888" required>
+              <span class="form-hint">Para gerenciar programação, itens e configurações.</span>
+            </div>
+          </div>
+
+          <div id="setup-error-msg"
+            style="color: var(--color-danger); font-size: 0.85rem; margin-top: 10px; font-weight: 500;"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary btn-lg" id="btn-submit-setup">Concluir e Iniciar
+            EventosAPP</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 2: PIN KEYPAD AUTH (RF-02)               -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-pin-auth">
+    <div class="modal-dialog" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="pin-modal-title">Acesso ao EventosAPP</h2>
+        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-pin-auth')"
+          aria-label="Fechar">✕</button>
+      </div>
+
+      <div class="modal-body" style="text-align: center;">
+        <p id="pin-modal-desc" style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;">
+          Digite o PIN numérico para continuar.
+        </p>
+
+        <!-- Dots Display -->
+        <div class="pin-display-wrapper">
+          <div class="pin-dots-container" id="pin-dots">
+            <div class="pin-dot"></div>
+            <div class="pin-dot"></div>
+            <div class="pin-dot"></div>
+            <div class="pin-dot"></div>
+          </div>
+        </div>
+
+        <!-- Numeric Keypad Grid -->
+        <div class="keypad-grid" id="pin-keypad">
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('1')">1</button>
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('2')">2</button>
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('3')">3</button>
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('4')">4</button>
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('5')">5</button>
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('6')">6</button>
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('7')">7</button>
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('8')">8</button>
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('9')">9</button>
+          <button class="keypad-btn action-btn" onclick="Modals.handlePinClear()">C</button>
+          <button class="keypad-btn" onclick="Modals.handlePinDigit('0')">0</button>
+          <button class="keypad-btn action-btn" onclick="Modals.handlePinBackspace()">⌫</button>
+        </div>
+
+        <div id="pin-error-msg"
+          style="color: var(--color-danger); font-size: 0.85rem; margin-top: 14px; min-height: 20px; font-weight: 500;">
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: center;">
+        <button class="btn btn-primary btn-lg" id="btn-submit-pin" style="width: 100%;"
+          onclick="Modals.submitPin()">Confirmar Acesso</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 3: ITEM EDITOR (RF-06)                   -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-item-editor">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title" id="item-modal-title">Novo Item na Programação</h2>
+        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-item-editor')"
+          aria-label="Fechar">✕</button>
+      </div>
+      <form id="form-item" onsubmit="event.preventDefault(); Modals.submitItem(this);">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="item-title">Tema *</label>
+            <input type="text" class="form-input" id="item-title" name="itemTitle"
+              placeholder="Ex: Discurso, Cântico, Oração">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="item-time">Horário *</label>
+            <input type="time" class="form-input" id="item-time" name="itemScheduledTime" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="item-speaker">Orador</label>
+            <input type="text" class="form-input" id="item-speaker" name="itemSpeaker"
+              placeholder="Ex: Fulano Santos - Cong. Norte">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="item-description">Observações</label>
+            <textarea class="form-textarea" id="item-description" name="itemDescription" rows="3"
+              placeholder="Ex: Discurso com Vídeo"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="Modals.close('modal-item-editor')">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-item">Salvar Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 4: MEDIA EDITOR (RF-07)                  -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-media-editor">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title" id="media-modal-title">Adicionar Nova Mídia</h2>
+        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-media-editor')"
+          aria-label="Fechar">✕</button>
+      </div>
+      <form id="form-media" onsubmit="event.preventDefault(); Modals.submitMedia(this);">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="media-type">Tipo de Mídia *</label>
+            <select class="form-select" id="media-type" name="mediaType">
+              <option value="bible">📖 Bíblia</option>
+              <option value="video">🎬 Vídeo</option>
+              <option value="image">🖼️ Imagem</option>
+              <option value="interview">🎙️ Entrevista</option>
+              <option value="theater">🎭 Teatro</option>
+              <option value="other">📁 Outro Conteúdo</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="media-title">Identificação da Mídia *</label>
+            <input type="text" class="form-input" id="media-title" name="mediaTitle" placeholder="Ex: Romanos 8:28..."
+              required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="media-ref">Observações</label>
+            <input type="text" class="form-input" id="media-ref" name="mediaReference"
+              placeholder="Ex: Editado, Com Audio, ...">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="Modals.close('modal-media-editor')">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-media">Salvar Mídia</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 5: EVENT SETTINGS & STRUCTURE            -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-settings">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Configurações do Evento</h2>
+        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-settings')"
+          aria-label="Fechar">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="tabs-header">
+          <button class="tab-btn active" onclick="switchModalTab('tab-structure', this)">Dias & Turnos</button>
+          <button class="tab-btn" onclick="switchModalTab('tab-general', this)">Dados do Evento</button>
+          <button class="tab-btn" onclick="switchModalTab('tab-security', this)">Segurança & PINs</button>
+        </div>
+
+        <!-- Tab 1: Structure -->
+        <div class="tab-pane active" id="tab-structure">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">Estrutura
+              Organizacional</span>
+            <button class="btn btn-sm btn-primary" onclick="Modals.promptAddDay()">+ Novo Dia</button>
+          </div>
+          <div class="entity-management-list" id="settings-structure-container">
+            <!-- Rendered by modals.js -->
+          </div>
+        </div>
+
+        <!-- Tab 2: General Info -->
+        <div class="tab-pane" id="tab-general">
+          <form id="form-settings-general" onsubmit="event.preventDefault(); Modals.submitSettingsGeneral(this);">
+            <div class="form-group">
+              <label class="form-label" for="settings-event-name">Nome do Evento</label>
+              <input type="text" class="form-input" id="settings-event-name" name="eventName" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="settings-event-cat">Categoria</label>
+              <input type="text" class="form-input" id="settings-event-cat" name="eventCategory">
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Salvar Alterações</button>
+          </form>
+        </div>
+
+        <!-- Tab 3: Security & PINs -->
+        <div class="tab-pane" id="tab-security">
+          <form id="form-settings-pins" onsubmit="event.preventDefault(); Modals.submitSettingsPins(this);">
+            <div class="form-group">
+              <label class="form-label" for="new-dir-pin">Novo PIN do Diretor 4 dígitos</label>
+              <input type="password" class="form-input" id="new-dir-pin" name="newDirectorPin" pattern="[0-9]{4}"
+                placeholder="Deixe em branco para manter o atual">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="new-adm-pin">Novo PIN de Administrador 4 dígitos</label>
+              <input type="password" class="form-input" id="new-adm-pin" name="newAdminPin" pattern="[0-9]{4}"
+                placeholder="Deixe em branco para manter o atual">
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Atualizar PINs</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="Modals.close('modal-settings')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 6: LAN QR CODE & NETWORK PAIRING         -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-lan-connect">
+    <div class="modal-dialog" style="max-width: 440px; text-align: center;">
+      <div class="modal-header">
+        <h2 class="modal-title">Conexão na Rede Local (LAN)</h2>
+        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-lan-connect')"
+          aria-label="Fechar">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px;">
+          Escaneie o QR Code abaixo com a câmera do seu celular ou tablet conectado ao mesmo Wi-Fi para abrir o
+          EventosAPP instantaneamente.
+        </p>
+
+        <div
+          style="background: white; padding: 16px; border-radius: var(--radius-lg); display: inline-block; margin-bottom: 16px; box-shadow: var(--shadow-md);">
+          <img id="lan-qrcode-img" src="" alt="QR Code LAN" style="width: 200px; height: 200px; display: block;">
+        </div>
+
+        <div
+          style="background: var(--bg-surface); border: 1px solid var(--border-subtle); padding: 12px; border-radius: var(--radius-md); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Endereço na Rede Local:</div>
+          <div id="lan-url-display"
+            style="font-family: var(--font-family-mono); font-weight: 700; color: #fbbf24; font-size: 1.05rem;">
+            Carregando...
+          </div>
+        </div>
+
+        <div style="font-size: 0.8rem; color: var(--text-muted);">
+          Nesta mesma máquina: <span id="local-url-display"
+            style="font-family: var(--font-family-mono); color: var(--text-secondary);">http://localhost:3000</span>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: center;">
+        <button class="btn btn-secondary" onclick="Modals.copyLanUrl()">Copiar Endereço</button>
+        <button class="btn btn-primary" onclick="Modals.close('modal-lan-connect')">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 7: SCHEDULE PICKER (MOBILE & SELEÇÃO)    -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-schedule-picker">
+    <div class="modal-dialog modal-dialog-schedule">
+      <div class="modal-header">
+        <h2 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          <span>Programação do Turno</span>
+        </h2>
+        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-schedule-picker')"
+          aria-label="Fechar">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <div id="timeline-modal-container">
+          <!-- Rendered by ui-director.js -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="Modals.close('modal-schedule-picker')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/state.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/modals.js"></script>
+  <script src="js/ui-director.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>

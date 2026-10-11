@@ -1,0 +1,200 @@
+/* EventosAPP - Edit Mode (Modo Edição) Styles */
+
+/* When Edit Mode is active, show edit-only elements */
+body.mode-editor .edit-only {
+  display: inline-flex !important;
+}
+
+body:not(.mode-editor) .edit-only {
+  display: none !important;
+}
+
+/* Edit Mode Toolbar Header */
+.editor-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface-elevated);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 12px 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.editor-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.editor-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Item Action Controls in Timeline */
+.timeline-item-actions {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+body.mode-editor .timeline-item-actions {
+  display: flex;
+}
+
+.action-btn-sm {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.action-btn-sm:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.action-btn-sm.play-btn:hover {
+  background: var(--color-live-bg);
+  color: var(--color-live);
+  border-color: var(--color-live);
+}
+
+.action-btn-sm.delete-btn:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* Edit actions in Spotlight Card */
+.spotlight-editor-actions {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+body.mode-editor .spotlight-editor-actions {
+  display: flex;
+}
+
+/* Media Item Edit Controls */
+.media-editor-actions {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+body.mode-editor .media-editor-actions {
+  display: flex;
+}
+
+/* Add Item & Add Media Buttons */
+.btn-add-item-dashed {
+  width: 100%;
+  padding: 12px;
+  border: 2px dashed rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.05);
+  color: #fbbf24;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-top: 8px;
+}
+
+body.mode-editor .btn-add-item-dashed {
+  display: flex;
+}
+
+.btn-add-item-dashed:hover {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #fbbf24;
+}
+
+/* Settings Drawer / Modal Tabs */
+.tabs-header {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 18px;
+  gap: 8px;
+}
+
+.tab-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  color: #fbbf24;
+  border-bottom-color: #fbbf24;
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+/* Days & Shifts Manager List */
+.entity-management-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.entity-management-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.entity-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.entity-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.entity-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
