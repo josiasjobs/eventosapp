@@ -7,9 +7,12 @@ const Api = {
   // REST Request Wrapper
   async request(endpoint, options = {}) {
     const headers = {
-      'Content-Type': 'application/json',
       ...(options.headers || {})
     };
+    // If sending JSON body, ensure Content-Type
+    if (options.body && !(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (AppState.token) {
       headers['Authorization'] = `Bearer ${AppState.token}`;

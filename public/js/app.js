@@ -203,6 +203,25 @@ function setupEventListeners() {
     loadShiftData();
   });
 
+  window.addEventListener('import-playlist', async (e) => {
+    const { itemId, file } = e.detail;
+    const formData = new FormData();
+    formData.append('playlist', file);
+    try {
+      const resp = await Api.request(`/api/items/${itemId}/import-playlist`, {
+        method: 'POST',
+        body: formData
+      });
+      console.log('Import response:', resp);
+      const count = resp.importedCount || 0;
+      window.showToast(`Playlist importada com sucesso. ${count} mídia(s) adicionada(s).`, 'success');
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+    } catch (err) {
+      console.error(err);
+      window.showToast('Erro ao importar playlist: ' + err.message, 'error');
+    }
+  });
+
   window.addEventListener('refresh-hierarchy-data', () => {
     loadEventHierarchy();
   });

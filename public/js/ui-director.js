@@ -87,7 +87,7 @@ const UIDirector = {
 
               <div class="media-text-info">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="badge ${typeInfo.badgeClass}">${typeInfo.icon} ${typeInfo.label}</span>
+                  <span class="badge ${typeInfo.badgeClass}" title="${typeInfo.label}">${typeInfo.icon}</span>
                   <span class="media-title">${media.title}</span>
                 </div>
                 ${media.reference ? `<span class="media-reference">Ref: ${media.reference}</span>` : ''}
@@ -168,7 +168,7 @@ const UIDirector = {
 
             <div style="display: flex; align-items: center; gap: 10px;">
               <span class="medias-progress-stats" id="medias-stats-text">${completedCount} de ${medias.length} concluídas (${progressPercent}%)</span>
-              <button class="btn btn-sm btn-secondary edit-only" onclick="Modals.openMediaModal(${currentItem.id})">+ Adicionar Mídia</button>
+${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn" title="Importar mídia" onclick="UIDirector.importPlaylist(${currentItem.id})">Importar</button>` : ''}<button class="btn btn-sm btn-secondary edit-only" onclick="Modals.openMediaModal(${currentItem.id})">+ Adicionar Mídia</button>
             </div>
           </div>
 
@@ -224,6 +224,7 @@ const UIDirector = {
 
               <div class="item-details">
                 <div class="item-header-meta">
+                  ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn" title="Importar mídia" onclick="UIDirector.importPlaylist(${item.id})">Importar</button>` : ''}
                   <span class="item-scheduled-time">${item.scheduled_time}</span>
                   ${item.activity_type ? `<span class="badge badge-primary" style="font-size: 0.65rem; padding: 1px 6px;">${item.activity_type}</span>` : ''}
                   ${isCurrent ? `<span class="badge badge-live" style="font-size: 0.65rem; padding: 1px 6px;">AO VIVO</span>` : ''}
@@ -463,6 +464,23 @@ const UIDirector = {
     }
   },
 
+  async importPlaylist(itemId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.jwlplaylist';
+    input.style.display = 'none';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const ev = new CustomEvent('import-playlist', { detail: { itemId, file } });
+      window.dispatchEvent(ev);
+      window.showToast('Arquivo de playlist selecionado.', 'info');
+    };
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => input.remove(), 1000);
+  },
+
   async deleteMedia(mediaId) {
     if (!confirm('Deseja realmente remover esta mídia?')) return;
     try {
@@ -472,7 +490,9 @@ const UIDirector = {
     } catch (err) {
       window.showToast(err.message, 'error');
     }
-  }
+  },
+
+
 };
 
 window.UIDirector = UIDirector;
