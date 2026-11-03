@@ -48,5 +48,41 @@
     return String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
   }
 
-  return { itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml };
+  // Returns a copy of ids with fromId moved to toIndex (index in the resulting array, clamped).
+  function moveId(ids, fromId, toIndex) {
+    const rest = ids.filter((id) => id !== fromId);
+    if (rest.length === ids.length) return ids.slice();
+    const at = Math.max(0, Math.min(rest.length, toIndex));
+    rest.splice(at, 0, fromId);
+    return rest;
+  }
+
+  // Drop position while dragging: how many of the other rows (vertical centers, top to bottom) are above y.
+  function dropIndex(centers, y) {
+    let n = 0;
+    while (n < centers.length && centers[n] < y) n++;
+    return n;
+  }
+
+  // Returns list sorted by orderedIds (by .id); entries missing from orderedIds keep their order at the end.
+  function sortByIds(list, orderedIds) {
+    const pos = new Map(orderedIds.map((id, i) => [id, i]));
+    return list
+      .map((entry, i) => ({ entry, key: pos.has(entry.id) ? pos.get(entry.id) : orderedIds.length + i }))
+      .sort((a, b) => a.key - b.key)
+      .map((x) => x.entry);
+  }
+
+  // Floating menu placement: below the anchor, right-aligned to it; flips above when it does not fit;
+  // always clamped inside the viewport (margin in px).
+  function menuPosition(anchor, menuW, menuH, viewW, viewH, margin = 8) {
+    let left = anchor.right - menuW;
+    let top = anchor.bottom + 4;
+    if (top + menuH > viewH - margin) top = anchor.top - menuH - 4;
+    left = Math.max(margin, Math.min(left, viewW - menuW - margin));
+    top = Math.max(margin, Math.min(top, viewH - menuH - margin));
+    return { left, top };
+  }
+
+  return { menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
 });

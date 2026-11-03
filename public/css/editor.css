@@ -1,236 +1,147 @@
-/* EventosAPP - Edit Mode (Modo Edição) Styles */
+/* EventosAPP - Edicao: menu ⋯, excluir com dois toques, botao + e segurar e arrastar */
 
-/* When Edit Mode is active, show edit-only elements */
-body.mode-editor .edit-only {
-  display: inline-flex !important;
-}
+/* Elementos .edit-only somem fora da edicao; dentro dela cada um mantem o proprio display */
+body:not(.mode-editor) .edit-only { display: none !important; }
 
-body:not(.mode-editor) .edit-only {
-  display: none !important;
-}
+/* ⋯ nas linhas */
+.more-btn { flex: none; }
+.media-row .more-btn { margin: -6px -8px -6px 0; }
 
-/* Edit Mode Toolbar Header */
-.editor-action-bar {
+/* Menu flutuante (um so, preso ao body) */
+.row-menu {
+  position: fixed;
+  z-index: 1500;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  gap: 2px;
+  padding: 4px;
   background: var(--surface-raised);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: var(--radius);
-  padding: 12px 18px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+.row-menu-item { color: var(--text); }
+.row-menu-item.is-danger { color: var(--danger); }
+
+/* Excluir com dois toques: armado = vermelho e pulsando (unico pulso permitido) */
+.icon-btn.is-armed,
+.icon-btn.is-armed:hover {
+  background: var(--danger);
+  color: #fff;
+  animation: armed-pulse 0.9s ease-in-out infinite;
+}
+@keyframes armed-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.is-armed { animation: none; }
 }
 
-.editor-bar-left {
+/* Botao + flutuante: canto inferior direito, acima da barra de baixo */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.fab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: opacity var(--t);
+}
+.fab-btn:hover { opacity: 0.88; }
+.fab-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.fab-btn[aria-expanded="true"] svg { transform: rotate(45deg); }
+.fab-btn svg { transition: transform var(--t); }
+
+.fab-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+.fab-menu[hidden] { display: none; }
+.fab-option {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.editor-bar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Item Action Controls in Timeline */
-.timeline-item-actions {
-  display: none;
-  align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-}
-
-body.mode-editor .timeline-item-actions {
-  display: flex;
-}
-
-.action-btn-sm {
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  min-height: var(--tap);
+  min-width: 140px;
+  padding: 0 16px 0 12px;
+  border: none;
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
-  color: var(--text-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all var(--t);
-}
-
-.action-btn-sm:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: var(--text);
-  border-color: var(--border);
-}
-
-.action-btn-sm.play-btn:hover {
-  background: rgba(63,185,80,.12);
-  color: var(--done);
-  border-color: var(--done);
-}
-
-.action-btn-sm.delete-btn:hover {
-  background: rgba(240,82,82,.12);
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-/* Edit actions in Spotlight Card */
-.spotlight-editor-actions {
-  display: none;
-  align-items: center;
-  gap: 8px;
-}
-
-body.mode-editor .spotlight-editor-actions {
-  display: flex;
-}
-
-/* Media Item Edit Controls */
-.media-editor-actions {
-  display: none;
-  align-items: center;
-  gap: 4px;
-}
-
-body.mode-editor .media-editor-actions {
-  display: flex;
-}
-
-/* Media Drag Handle Button (Left lateral handle) */
-.media-drag-handle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 32px;
-  margin-left: -8px;
-  margin-right: 8px;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  color: var(--text-2);
-  cursor: grab;
-  touch-action: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--t);
+}
+.fab-option [data-icon] { display: inline-flex; color: var(--text-2); }
+.fab-option:hover { background: var(--surface-2); }
+.fab-option:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.fab-option:disabled { opacity: 0.4; cursor: not-allowed; }
+.fab-option:disabled:hover { background: transparent; }
+
+/* Espaco no fim das listas para o + nao cobrir a ultima linha */
+body.mode-editor .op-spotlight,
+body.mode-editor .op-list { padding-bottom: 88px; }
+
+/* Segurar e arrastar: sem selecao de texto nem menu do sistema durante o toque longo */
+body.mode-editor .part-row,
+body.mode-editor .media-row {
   user-select: none;
   -webkit-user-select: none;
-  transition: all var(--t);
-  flex-shrink: 0;
-  padding: 0;
+  -webkit-touch-callout: none;
 }
-
-body.mode-editor .media-drag-handle {
-  display: inline-flex;
-}
-
-.media-drag-handle:hover {
-  color: var(--accent);
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.25);
-}
-
-.media-drag-handle:active {
+.part-row.is-dragging,
+.media-row.is-dragging {
+  position: relative;
+  z-index: 2;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 2px var(--accent), var(--shadow);
   cursor: grabbing;
 }
+.is-reordering { cursor: grabbing; }
 
-/* Add Item & Add Media Buttons */
-.btn-add-item-dashed {
-  width: 100%;
-  padding: 12px;
-  border: 2px dashed rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.05);
-  color: #fbbf24;
-  border-radius: var(--radius);
-  font-weight: 600;
-  font-size: 0.9rem;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all var(--t);
-  margin-top: 8px;
-}
-
-body.mode-editor .btn-add-item-dashed {
-  display: flex;
-}
-
-.btn-add-item-dashed:hover {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: #fbbf24;
-}
-
-/* Settings Drawer / Modal Tabs */
+/* Configuracoes: abas (ate a Tarefa 9) */
 .tabs-header {
   display: flex;
   border-bottom: 1px solid var(--border);
   margin-bottom: 18px;
   gap: 8px;
 }
-
 .tab-btn {
+  min-height: var(--tap);
   padding: 8px 16px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-2);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--fs-small);
   cursor: pointer;
-  transition: all var(--t);
+  transition: color var(--t), border-color var(--t);
 }
-
-.tab-btn:hover {
-  color: var(--text);
-}
-
-.tab-btn.active {
-  color: #fbbf24;
-  border-bottom-color: #fbbf24;
-}
-
-.tab-pane {
-  display: none;
-}
-
-.tab-pane.active {
-  display: block;
-}
-
-/* Days & Shifts Manager List */
-.entity-management-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.entity-management-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.entity-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.entity-title {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.entity-subtitle {
-  font-size: 0.8rem;
-  color: var(--text-2);
-}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }

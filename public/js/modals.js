@@ -339,8 +339,10 @@ const Modals = {
     const esc = Logic.escapeHtml;
     const editing = AppState.mode === 'editor';
     const days = AppState.days || [];
-    const btn = (action, id, name, label, cls = '') =>
-      `<button type="button" class="icon-btn ${cls}" data-provisional data-action="${action}" data-id="${id}" title="${label}" aria-label="${label}">${window.icon(name, 20)}</button>`;
+    const btn = (action, attrs, name, label, cls = '') =>
+      `<button type="button" class="icon-btn ${cls}" data-action="${action}" ${attrs} title="${label}" aria-label="${label}">${window.icon(name, 20)}</button>`;
+    const moreBtn = (action, id, label) =>
+      btn(action, `data-id="${Number(id)}" aria-haspopup="menu" aria-expanded="false"`, 'more', label, 'more-btn edit-only');
 
     let html = '';
     days.forEach(day => {
@@ -348,31 +350,48 @@ const Modals = {
       html += `<div class="row" style="cursor: default; font-weight: 700;">
         <span style="flex: 1;">${esc(day.label)} <span style="font-weight: 400; color: var(--text-2);">${esc(day.date)}</span></span>`;
       if (editing) {
-        html += btn('add-shift', day.id, 'plus', 'Novo turno', 'edit-only');
-        html += btn('edit-day', day.id, 'pencil', 'Renomear dia', 'edit-only');
-        if (days.length > 1) html += btn('delete-day', day.id, 'trash', 'Excluir dia', 'edit-only');
+        html += btn('add-shift', `data-id="${Number(day.id)}"`, 'plus', 'Novo turno', 'edit-only');
+        html += moreBtn('day-menu', day.id, 'Ações do dia');
       }
       html += '</div>';
       shifts.forEach(shift => {
         const selected = shift.id === AppState.selectedShiftId;
-        html += `<div class="row${selected ? ' selected' : ''}" data-action="select-shift" data-day-id="${day.id}" data-id="${shift.id}" role="button" tabindex="0" style="padding-left: 28px;">
+        html += `<div class="row${selected ? ' selected' : ''}" data-action="select-shift" data-day-id="${Number(day.id)}" data-id="${Number(shift.id)}" role="button" tabindex="0" style="padding-left: 28px;">
           <span style="flex: 1;${selected ? ' color: var(--accent); font-weight: 700;' : ''}">${esc(shift.name)}</span>`;
         if (selected) html += `<span style="color: var(--accent);">${window.icon('check', 20)}</span>`;
-        if (editing) {
-          html += btn('edit-shift', shift.id, 'pencil', 'Renomear turno', 'edit-only');
-          if (shifts.length > 1) html += btn('delete-shift', shift.id, 'trash', 'Excluir turno', 'edit-only');
-        }
+        if (editing) html += moreBtn('shift-menu', shift.id, 'Ações do turno');
         html += '</div>';
       });
     });
     if (editing) {
-      html += `<div class="row" data-provisional data-action="add-day" role="button" tabindex="0" style="color: var(--accent);">${window.icon('plus', 20)}<span>Novo dia</span></div>`;
+      html += `<div class="row" data-action="add-day" role="button" tabindex="0" style="color: var(--accent);">${window.icon('plus', 20)}<span>Novo dia</span></div>`;
     }
     if (!days.length) html = '<div class="row" style="cursor: default;">Nenhum dia cadastrado.</div>';
 
     const container = document.getElementById('shift-picker-container');
     if (container) container.innerHTML = html;
     return html;
+  },
+
+  // ⋯ of a day or shift: ✎ renomear · 🗑 excluir (two taps). The last day/shift cannot be deleted (no 🗑).
+  openShiftPickerMenu(el) {
+    const id = Number(el.dataset.id);
+    const run = action => this.handleShiftPickerAction({ dataset: { action, id: String(id) } });
+    if (el.dataset.action === 'day-menu') {
+      const actions = [{ icon: 'pencil', label: 'Renomear dia', onClick: () => run('edit-day') }];
+      if ((AppState.days || []).length > 1) {
+        actions.push({ icon: 'trash', label: 'Excluir dia', danger: true, onClick: () => run('delete-day') });
+      }
+      UIDirector.openRowMenu(el, actions);
+    } else {
+      const found = this._findShift(id);
+      if (!found) return;
+      const actions = [{ icon: 'pencil', label: 'Renomear turno', onClick: () => run('edit-shift') }];
+      if ((found.day.shifts || []).length > 1) {
+        actions.push({ icon: 'trash', label: 'Excluir turno', danger: true, onClick: () => run('delete-shift') });
+      }
+      UIDirector.openRowMenu(el, actions);
+    }
   },
 
   _findShift(shiftId) {
@@ -444,18 +463,23 @@ const Modals = {
     }
   },
 
+  _onShiftPickerEl(el) {
+    if (el.dataset.action === 'day-menu' || el.dataset.action === 'shift-menu') this.openShiftPickerMenu(el);
+    else this.handleShiftPickerAction(el);
+  },
+
   initShiftPicker() {
     const container = document.getElementById('shift-picker-container');
     if (!container || container.dataset.bound) return;
     container.dataset.bound = '1';
     container.addEventListener('click', e => {
       const el = e.target.closest('[data-action]');
-      if (el && container.contains(el)) this.handleShiftPickerAction(el);
+      if (el && container.contains(el)) this._onShiftPickerEl(el);
     });
     container.addEventListener('keydown', e => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       const el = e.target.closest('[data-action]');
-      if (el && el === e.target) { e.preventDefault(); this.handleShiftPickerAction(el); }
+      if (el && el === e.target) { e.preventDefault(); this._onShiftPickerEl(el); }
     });
   },
 

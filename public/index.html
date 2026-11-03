@@ -52,6 +52,16 @@
       </section>
     </main>
 
+    <!-- BOTAO + FLUTUANTE (so com a edicao ligada) -->
+    <div class="fab edit-only" id="fab">
+      <div class="fab-menu" id="fab-menu" role="menu" hidden>
+        <button type="button" class="fab-option" data-fab="item" role="menuitem"><span data-icon="list"></span><span>Parte</span></button>
+        <button type="button" class="fab-option" data-fab="media" role="menuitem"><span data-icon="file"></span><span>Mídia</span></button>
+      </div>
+      <button type="button" class="fab-btn" id="fab-add" title="Adicionar" aria-label="Adicionar"
+        aria-haspopup="menu" aria-expanded="false" data-icon="plus"></button>
+    </div>
+
     <!-- TOAST NOTIFICATIONS CONTAINER -->
     <div id="toast-container"></div>
   </div>

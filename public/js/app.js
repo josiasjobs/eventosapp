@@ -208,6 +208,7 @@ function setupEventListeners() {
         modeBtn.classList.toggle('is-on', isEditor);
         modeBtn.setAttribute('aria-pressed', String(isEditor));
       }
+      if (!isEditor) UIDirector.closeEditOverlays();
       UIDirector.render();
     } else if (eventType === 'WS_STATUS_CHANGED') {
       const connBtn = document.getElementById('btn-connection');
@@ -233,7 +234,6 @@ function toggleMode() {
     if (AppState.role === 'admin') {
       // Already admin session
       AppState.setMode('editor');
-      window.showToast('Modo Edição ativado', 'info');
     } else {
       // Need Admin PIN
       Modals.openPinModal('upgrade');
@@ -241,7 +241,6 @@ function toggleMode() {
   } else {
     // Returning to Director mode
     AppState.setMode('director');
-    window.showToast('Retornou ao Modo Diretor', 'info');
   }
 }
 

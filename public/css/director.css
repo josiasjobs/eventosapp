@@ -137,8 +137,6 @@ body.mode-editor .topbar { box-shadow: 0 2px 0 var(--accent); }
 }
 .part-row.is-done .part-title { text-decoration: line-through; color: var(--text-2); }
 
-.list-add { padding: 12px; }
-
 /* Bolinha de status como botao: area de toque de 44px pelo ::before */
 button.dot {
   appearance: none;
@@ -216,19 +214,6 @@ button.dot.dot-lg::before { inset: -12px; }
 .media-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .media-title { overflow-wrap: anywhere; }
 .media-notes { font-size: var(--fs-small); color: var(--text-2); overflow-wrap: anywhere; }
-
-/* Reordenar midias (alca so na edicao; substituida na Tarefa 7) */
-.media-row .media-drag-handle { width: var(--tap); height: var(--tap); margin: 0 -8px 0 -8px; }
-.media-row.is-dragging { opacity: 0.5; }
-.media-row.drag-over-above { box-shadow: inset 0 2px 0 var(--accent); }
-.media-row.drag-over-below { box-shadow: inset 0 -2px 0 var(--accent); }
-
-/* Botoes de edicao nas linhas (so com body.mode-editor; viram o menu na Tarefa 7) */
-.row-actions { flex: none; align-items: center; margin-left: auto; }
-.icon-btn.is-danger:hover { color: var(--danger); }
-.rot-up svg, .rot-down svg { transform: rotate(90deg); }
-
-.edit-tools { flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 
 /* Estados vazios */
 .empty-state {

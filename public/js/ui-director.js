@@ -29,6 +29,8 @@ const UIDirector = {
 
   // Render whole view
   render() {
+    // A long-press drag owns the DOM rows until it ends; render once it is over.
+    if (this._dragging) { this._renderPending = true; return; }
     this.bindEvents();
     this.renderShiftLabel();
     this.renderSpotlight();
@@ -45,12 +47,12 @@ const UIDirector = {
     labelEl.textContent = day && shift ? `${day.label} · ${shift.name}` : 'Sem turno';
   },
 
-  emptyStateHtml(iconName, text, addAction, addLabel) {
+  // Empty state: icon + short sentence (adding is done with the floating + in edit mode)
+  emptyStateHtml(iconName, text) {
     return `
       <div class="empty-state">
         <span class="empty-state-icon">${icon(iconName, 32)}</span>
         <p>${uiEsc(text)}</p>
-        ${addAction ? `<button type="button" class="btn btn-accent edit-only" data-action="${addAction}">${icon('plus')}<span>${uiEsc(addLabel)}</span></button>` : ''}
       </div>
     `;
   },
@@ -65,7 +67,7 @@ const UIDirector = {
 
     if (!currentItem) {
       spotlightContainer.innerHTML = items.length === 0
-        ? this.emptyStateHtml('list', 'Sem partes neste turno', 'add-item', 'Nova parte')
+        ? this.emptyStateHtml('list', 'Sem partes neste turno')
         : this.emptyStateHtml('list', 'Escolha uma parte na programação');
       return;
     }
@@ -75,30 +77,20 @@ const UIDirector = {
     const itemId = Number(currentItem.id);
 
     const mediasHtml = medias.length === 0
-      ? this.emptyStateHtml('file', 'Sem mídias', 'add-media', 'Nova mídia')
+      ? this.emptyStateHtml('file', 'Sem mídias')
       : medias.map(media => {
         const typeInfo = this.getMediaTypeInfo(media.type);
         const done = !!media.completed;
         return `
           <div class="media-row${done ? ' is-done' : ''}" data-media-id="${Number(media.id)}"
                role="button" tabindex="0" aria-pressed="${done}">
-            <button class="media-drag-handle edit-only" type="button" title="Arrastar para reordenar" aria-label="Arrastar para reordenar">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/>
-                <circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/>
-                <circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/>
-              </svg>
-            </button>
             <span class="check-circle${done ? ' is-done' : ''}">${icon('check', 16)}</span>
             <span class="media-type-icon" title="${uiEsc(typeInfo.label)}">${icon(typeInfo.icon)}</span>
             <span class="media-text">
               <span class="media-title">${uiEsc(media.title)}</span>
               ${media.reference ? `<span class="media-notes">${uiEsc(media.reference)}</span>` : ''}
             </span>
-            <span class="row-actions edit-only">
-              ${uiIconButton('pencil', 'Editar mídia', 'data-action="edit-media"')}
-              ${uiIconButton('trash', 'Excluir mídia', 'data-action="delete-media"', 'is-danger')}
-            </span>
+            ${uiIconButton('more', 'Ações da mídia', 'data-action="media-menu" aria-haspopup="menu" aria-expanded="false"', 'more-btn edit-only')}
           </div>
         `;
       }).join('');
@@ -123,15 +115,8 @@ const UIDirector = {
         <div class="media-list" id="medias-checklist-list">
           ${mediasHtml}
         </div>
-
-        <div class="edit-tools edit-only">
-          ${medias.length > 0 ? `<button type="button" class="btn btn-secondary" data-action="add-media">${icon('plus')}<span>Nova mídia</span></button>` : ''}
-          <button type="button" class="btn btn-secondary" data-action="import">${icon('upload')}<span>Importar</span></button>
-        </div>
       </article>
     `;
-
-    this.setupMediaDragAndDrop(currentItem.id);
   },
 
   // 2. Program list (left column on tablet, drawer on phone)
@@ -153,13 +138,7 @@ const UIDirector = {
              data-item-id="${id}" role="button" tabindex="0"${isCurrent ? ' aria-current="true"' : ''}>
           <span class="part-time tnum">${uiEsc(item.scheduled_time)}</span>
           <span class="part-title">${uiEsc(item.title)}</span>
-          <span class="row-actions edit-only">
-            ${uiIconButton('upload', 'Importar mídia', 'data-action="import"')}
-            ${uiIconButton('chevron-left', 'Mover para cima', 'data-action="move-up"', 'rot-up')}
-            ${uiIconButton('chevron-right', 'Mover para baixo', 'data-action="move-down"', 'rot-down')}
-            ${uiIconButton('pencil', 'Editar parte', 'data-action="edit-item"')}
-            ${uiIconButton('trash', 'Excluir parte', 'data-action="delete-item"', 'is-danger')}
-          </span>
+          ${uiIconButton('more', 'Ações da parte', 'data-action="item-menu" aria-haspopup="menu" aria-expanded="false"', 'more-btn edit-only')}
           <button type="button" class="dot is-${status}" data-action="toggle-item"
                   title="${label}" aria-label="${label}" aria-pressed="${status === 'done'}"></button>
         </div>
@@ -167,13 +146,8 @@ const UIDirector = {
     }).join('');
 
     const listHtml = items.length === 0
-      ? this.emptyStateHtml('list', 'Sem partes neste turno', 'add-item', 'Nova parte')
-      : `
-        <div class="part-list">${rowsHtml}</div>
-        <div class="list-add edit-only">
-          <button type="button" class="btn btn-secondary" data-action="add-item">${icon('plus')}<span>Nova parte</span></button>
-        </div>
-      `;
+      ? this.emptyStateHtml('list', 'Sem partes neste turno')
+      : `<div class="part-list">${rowsHtml}</div>`;
 
     // Scroll only when the shift or the current part changes, so re-renders
     // (media/part toggles, WS updates) never pull a scrolled list back.
@@ -218,11 +192,19 @@ const UIDirector = {
 
     ['timeline-container', 'timeline-modal-container'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.addEventListener('click', (e) => this.onListClick(e));
+      if (!el) return;
+      el.addEventListener('click', (e) => this.onListClick(e));
+      this.enableLongPressReorder(el, '.part-row[data-item-id]', (ids) => this.reorderParts(ids));
     });
 
     const spotlight = document.getElementById('spotlight-container');
-    if (spotlight) spotlight.addEventListener('click', (e) => this.onSpotlightClick(e));
+    if (spotlight) {
+      spotlight.addEventListener('click', (e) => this.onSpotlightClick(e));
+      this.enableLongPressReorder(spotlight, '.media-row[data-media-id]', (ids) => this.reorderMedias(ids));
+    }
+
+    this.bindFab();
+    this.bindOverlayDismiss();
 
     const nav = document.getElementById('director-nav-container');
     if (nav) nav.addEventListener('click', (e) => this.onNavClick(e));
@@ -243,21 +225,14 @@ const UIDirector = {
     const row = e.target.closest('.row[data-item-id]');
     const action = actionEl ? actionEl.dataset.action : null;
 
-    if (!row) {
-      if (action === 'add-item') Modals.openItemModal();
-      return;
-    }
+    if (!row) return;
 
     const itemId = Number(row.dataset.itemId);
     if (actionEl && row.contains(actionEl)) {
       e.stopPropagation();
       switch (action) {
         case 'toggle-item': this.toggleItemDot(itemId); break;
-        case 'import': this.importPlaylist(itemId); break;
-        case 'move-up': this.moveItem(itemId, -1); break;
-        case 'move-down': this.moveItem(itemId, 1); break;
-        case 'edit-item': Modals.openItemModal(itemId); break;
-        case 'delete-item': this.deleteItem(itemId); break;
+        case 'item-menu': this.openItemMenu(actionEl, itemId); break;
       }
       return;
     }
@@ -266,8 +241,6 @@ const UIDirector = {
   },
 
   onSpotlightClick(e) {
-    if (e.target.closest('.media-drag-handle')) return;
-
     const part = e.target.closest('.current-part[data-item-id]');
     const itemId = part ? Number(part.dataset.itemId) : null;
     const actionEl = e.target.closest('[data-action]');
@@ -276,12 +249,8 @@ const UIDirector = {
 
     if (actionEl) {
       switch (actionEl.dataset.action) {
-        case 'add-item': Modals.openItemModal(); break;
         case 'toggle-item': if (itemId) this.toggleItemDot(itemId); break;
-        case 'add-media': if (itemId) Modals.openMediaModal(itemId); break;
-        case 'import': if (itemId) this.importPlaylist(itemId); break;
-        case 'edit-media': if (itemId && mediaId) Modals.openMediaModal(itemId, mediaId); break;
-        case 'delete-media': if (mediaId) this.deleteMedia(mediaId); break;
+        case 'media-menu': if (itemId && mediaId) this.openMediaMenu(actionEl, itemId, mediaId); break;
       }
       return;
     }
@@ -420,218 +389,14 @@ const UIDirector = {
     }
   },
 
-  // Edit Mode Specific Item Actions
-  async moveItem(itemId, direction) {
-    const items = [...AppState.shiftData.items];
-    const index = items.findIndex(i => i.id === itemId);
-    if (index === -1) return;
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= items.length) return;
-
-    // Swap
-    const temp = items[index];
-    items[index] = items[targetIndex];
-    items[targetIndex] = temp;
-
-    const orderedIds = items.map(i => i.id);
-    try {
-      await Api.reorderItems(AppState.selectedShiftId, orderedIds);
-      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
-  },
-
+  // Edit mode: deletions (confirmed with two taps by confirmDelete)
   async deleteItem(itemId) {
-    if (!confirm('Deseja realmente excluir esta parte e suas mídias?')) return;
     try {
       await Api.deleteItem(itemId);
       window.showToast('Parte excluída.', 'success');
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
     } catch (err) {
       window.showToast(err.message, 'error');
-    }
-  },
-
-  async moveMedia(itemId, mediaId, direction) {
-    const item = AppState.shiftData.items.find(i => i.id === itemId);
-    if (!item || !item.medias) return;
-    const medias = [...item.medias];
-    const index = medias.findIndex(m => m.id === mediaId);
-    if (index === -1) return;
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= medias.length) return;
-
-    const temp = medias[index];
-    medias[index] = medias[targetIndex];
-    medias[targetIndex] = temp;
-
-    const orderedIds = medias.map(m => m.id);
-    try {
-      await Api.reorderMedias(itemId, orderedIds);
-      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
-  },
-
-  setupMediaDragAndDrop(itemId) {
-    const list = document.getElementById('medias-checklist-list');
-    if (!list) return;
-
-    const rows = list.querySelectorAll('.media-row');
-    if (rows.length < 2) return;
-
-    let draggedRow = null;
-    let draggedMediaId = null;
-
-    rows.forEach(row => {
-      const handle = row.querySelector('.media-drag-handle');
-      if (!handle) return;
-
-      // Enable drag only when handle is pressed
-      handle.addEventListener('mousedown', () => {
-        row.setAttribute('draggable', 'true');
-      });
-
-      const resetDraggable = () => {
-        row.removeAttribute('draggable');
-      };
-
-      handle.addEventListener('mouseup', resetDraggable);
-      handle.addEventListener('mouseleave', resetDraggable);
-
-      // Desktop HTML5 Drag & Drop
-      row.addEventListener('dragstart', (e) => {
-        draggedRow = row;
-        draggedMediaId = Number(row.dataset.mediaId);
-        row.classList.add('is-dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', String(draggedMediaId));
-      });
-
-      row.addEventListener('dragend', () => {
-        row.removeAttribute('draggable');
-        row.classList.remove('is-dragging');
-        rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
-        draggedRow = null;
-        draggedMediaId = null;
-      });
-
-      row.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        if (!draggedRow || draggedRow === row) return;
-
-        const rect = row.getBoundingClientRect();
-        const isAbove = (e.clientY - rect.top) < (rect.height / 2);
-        row.classList.toggle('drag-over-above', isAbove);
-        row.classList.toggle('drag-over-below', !isAbove);
-      });
-
-      row.addEventListener('dragleave', () => {
-        row.classList.remove('drag-over-above', 'drag-over-below');
-      });
-
-      row.addEventListener('drop', (e) => {
-        e.preventDefault();
-        row.classList.remove('drag-over-above', 'drag-over-below');
-        if (!draggedMediaId) return;
-
-        const targetMediaId = Number(row.dataset.mediaId);
-        if (draggedMediaId === targetMediaId) return;
-
-        const rect = row.getBoundingClientRect();
-        const isAbove = (e.clientY - rect.top) < (rect.height / 2);
-
-        this.handleMediaReorderDrop(itemId, draggedMediaId, targetMediaId, isAbove);
-      });
-
-      // Mobile / Tablet Touch Events
-      let activeTouchRow = null;
-
-      handle.addEventListener('touchstart', (e) => {
-        if (e.touches.length !== 1) return;
-        activeTouchRow = row;
-        draggedMediaId = Number(row.dataset.mediaId);
-        row.classList.add('is-dragging');
-      }, { passive: true });
-
-      handle.addEventListener('touchmove', (e) => {
-        if (!activeTouchRow) return;
-        const touch = e.touches[0];
-        const elem = document.elementFromPoint(touch.clientX, touch.clientY);
-        const targetRow = elem ? elem.closest('.media-row') : null;
-
-        rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
-        if (targetRow && targetRow !== activeTouchRow && list.contains(targetRow)) {
-          const rect = targetRow.getBoundingClientRect();
-          const isAbove = (touch.clientY - rect.top) < (rect.height / 2);
-          targetRow.classList.toggle('drag-over-above', isAbove);
-          targetRow.classList.toggle('drag-over-below', !isAbove);
-        }
-      }, { passive: true });
-
-      handle.addEventListener('touchend', (e) => {
-        if (!activeTouchRow) return;
-        activeTouchRow.classList.remove('is-dragging');
-
-        const changedTouch = e.changedTouches[0];
-        const elem = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY);
-        const targetRow = elem ? elem.closest('.media-row') : null;
-
-        rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
-
-        if (targetRow && targetRow !== activeTouchRow && list.contains(targetRow)) {
-          const targetMediaId = Number(targetRow.dataset.mediaId);
-          const rect = targetRow.getBoundingClientRect();
-          const isAbove = (changedTouch.clientY - rect.top) < (rect.height / 2);
-          this.handleMediaReorderDrop(itemId, draggedMediaId, targetMediaId, isAbove);
-        }
-
-        activeTouchRow = null;
-        draggedMediaId = null;
-      });
-
-      handle.addEventListener('touchcancel', () => {
-        if (activeTouchRow) activeTouchRow.classList.remove('is-dragging');
-        rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
-        activeTouchRow = null;
-        draggedMediaId = null;
-      });
-    });
-  },
-
-  async handleMediaReorderDrop(itemId, draggedMediaId, targetMediaId, isAbove) {
-    const item = AppState.shiftData && AppState.shiftData.items ? AppState.shiftData.items.find(i => i.id === itemId) : null;
-    if (!item || !item.medias) return;
-
-    const medias = [...item.medias];
-    const fromIndex = medias.findIndex(m => m.id === draggedMediaId);
-    if (fromIndex === -1) return;
-
-    const [moved] = medias.splice(fromIndex, 1);
-
-    let toIndex = medias.findIndex(m => m.id === targetMediaId);
-    if (toIndex === -1) return;
-
-    if (!isAbove) {
-      toIndex += 1;
-    }
-
-    medias.splice(toIndex, 0, moved);
-
-    // Instant local UI update
-    item.medias = medias;
-    this.renderSpotlight();
-
-    const orderedIds = medias.map(m => m.id);
-    try {
-      await Api.reorderMedias(itemId, orderedIds);
-      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
-    } catch (err) {
-      window.showToast(err.message, 'error');
-      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
     }
   },
 
@@ -653,7 +418,6 @@ const UIDirector = {
   },
 
   async deleteMedia(mediaId) {
-    if (!confirm('Deseja realmente remover esta mídia?')) return;
     try {
       await Api.deleteMedia(mediaId);
       window.showToast('Mídia removida.', 'success');
@@ -663,7 +427,326 @@ const UIDirector = {
     }
   },
 
+  // ==========================================
+  // EDIT MODE: row menu (⋯), two-tap delete, floating +, long-press reorder
+  // ==========================================
+  ARM_MS: 3000,
+  HOLD_MS: 500,
+  SLOP_PX: 10,
 
+  openItemMenu(anchorEl, itemId) {
+    this.openRowMenu(anchorEl, [
+      { icon: 'pencil', label: 'Editar parte', onClick: () => Modals.openItemModal(itemId) },
+      { icon: 'download', label: 'Importar playlist', onClick: () => this.importPlaylist(itemId) },
+      { icon: 'trash', label: 'Excluir parte', danger: true, onClick: () => this.deleteItem(itemId) }
+    ]);
+  },
+
+  openMediaMenu(anchorEl, itemId, mediaId) {
+    this.openRowMenu(anchorEl, [
+      { icon: 'pencil', label: 'Editar mídia', onClick: () => Modals.openMediaModal(itemId, mediaId) },
+      { icon: 'trash', label: 'Excluir mídia', danger: true, onClick: () => this.deleteMedia(mediaId) }
+    ]);
+  },
+
+  // One floating menu at a time, appended to <body>, placed next to anchorEl and kept inside the screen.
+  // actions: [{ icon, label, onClick, danger? }]. A danger action arms (two-tap) and keeps the menu open.
+  openRowMenu(anchorEl, actions) {
+    const skip = this._menuSkip;
+    this._menuSkip = null;
+    // Tapping the same ⋯ again closes it (the outside pointerdown already closed it).
+    if (skip && skip.el === anchorEl && Date.now() < skip.until) return;
+    if (this._menu && this._menu.anchor === anchorEl) { this.closeRowMenu(); return; }
+    this.closeRowMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'row-menu';
+    menu.setAttribute('role', 'menu');
+    actions.forEach(action => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'icon-btn row-menu-item' + (action.danger ? ' is-danger' : '');
+      btn.title = action.label;
+      btn.setAttribute('aria-label', action.label);
+      btn.setAttribute('role', 'menuitem');
+      btn.innerHTML = icon(action.icon);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (action.danger) {
+          this.confirmDelete(btn, async () => {
+            this.closeRowMenu();
+            await action.onClick();
+          });
+          return;
+        }
+        this.closeRowMenu();
+        action.onClick();
+      });
+      menu.appendChild(btn);
+    });
+
+    document.body.appendChild(menu);
+    const pos = Logic.menuPosition(anchorEl.getBoundingClientRect(), menu.offsetWidth, menu.offsetHeight,
+      window.innerWidth, window.innerHeight);
+    menu.style.left = `${pos.left}px`;
+    menu.style.top = `${pos.top}px`;
+    anchorEl.setAttribute('aria-expanded', 'true');
+    this._menu = { el: menu, anchor: anchorEl };
+  },
+
+  closeRowMenu() {
+    const m = this._menu;
+    if (!m) return;
+    this._menu = null;
+    if (this._armed && m.el.contains(this._armed.el)) this._disarm();
+    m.anchor.setAttribute('aria-expanded', 'false');
+    m.el.remove();
+  },
+
+  // Two-tap delete: 1st tap arms (.is-armed, red + pulse) for ARM_MS; 2nd tap on the same button
+  // within that window runs onConfirm. Tapping elsewhere or waiting disarms.
+  confirmDelete(buttonEl, onConfirm) {
+    const armed = this._armed;
+    if (armed && armed.el === buttonEl) {
+      this._disarm();
+      return Promise.resolve()
+        .then(onConfirm)
+        .catch(err => window.showToast(err && err.message ? err.message : String(err), 'error'));
+    }
+    this._disarm();
+    buttonEl.classList.add('is-armed');
+    const onOutside = (e) => {
+      if (!buttonEl.contains(e.target)) this._disarm();
+    };
+    document.addEventListener('pointerdown', onOutside, true);
+    this._armed = {
+      el: buttonEl,
+      onOutside,
+      timer: setTimeout(() => this._disarm(), this.ARM_MS)
+    };
+    return Promise.resolve();
+  },
+
+  _disarm() {
+    const armed = this._armed;
+    if (!armed) return;
+    this._armed = null;
+    clearTimeout(armed.timer);
+    document.removeEventListener('pointerdown', armed.onOutside, true);
+    armed.el.classList.remove('is-armed');
+  },
+
+  // Floating + (edit mode only): Parte / Mídia (Mídia needs a current part)
+  bindFab() {
+    const fab = document.getElementById('fab-add');
+    const menu = document.getElementById('fab-menu');
+    if (!fab || !menu) return;
+    fab.addEventListener('click', () => {
+      if (menu.hidden) this.openFabMenu(); else this.closeFabMenu();
+    });
+    menu.addEventListener('click', (e) => {
+      const opt = e.target.closest('[data-fab]');
+      if (!opt || opt.disabled) return;
+      this.closeFabMenu();
+      if (opt.dataset.fab === 'item') Modals.openItemModal();
+      else if (opt.dataset.fab === 'media' && AppState.currentItemId) Modals.openMediaModal(AppState.currentItemId);
+    });
+  },
+
+  openFabMenu() {
+    const fab = document.getElementById('fab-add');
+    const menu = document.getElementById('fab-menu');
+    if (!fab || !menu) return;
+    const mediaOpt = menu.querySelector('[data-fab="media"]');
+    if (mediaOpt) mediaOpt.disabled = !AppState.getCurrentItem();
+    menu.hidden = false;
+    fab.setAttribute('aria-expanded', 'true');
+  },
+
+  closeFabMenu() {
+    const fab = document.getElementById('fab-add');
+    const menu = document.getElementById('fab-menu');
+    if (!menu || menu.hidden) return;
+    menu.hidden = true;
+    if (fab) fab.setAttribute('aria-expanded', 'false');
+  },
+
+  // Closes every edit overlay (row menu, + menu, armed delete). Used when leaving edit mode.
+  closeEditOverlays() {
+    this.closeRowMenu();
+    this.closeFabMenu();
+    this._disarm();
+  },
+
+  // Outside tap, scroll, resize and Esc close the row menu and the + menu
+  bindOverlayDismiss() {
+    document.addEventListener('pointerdown', (e) => {
+      const m = this._menu;
+      if (m && !m.el.contains(e.target)) {
+        if (m.anchor.contains(e.target)) this._menuSkip = { el: m.anchor, until: Date.now() + 800 };
+        this.closeRowMenu();
+      }
+      const fabWrap = document.getElementById('fab');
+      if (fabWrap && !fabWrap.contains(e.target)) this.closeFabMenu();
+    }, true);
+    const onScrollOrResize = () => { this.closeRowMenu(); this.closeFabMenu(); };
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const menu = document.getElementById('fab-menu');
+      if (this._menu || (menu && !menu.hidden)) {
+        e.stopPropagation();
+        this.closeRowMenu();
+        this.closeFabMenu();
+      }
+    }, true);
+  },
+
+  // Long-press reorder (edit mode only). Hold a row HOLD_MS without moving more than SLOP_PX, then drag.
+  // Moving earlier cancels (so the list scrolls normally). Pointer Events cover touch and mouse.
+  // Rows are matched by rowSelector inside listEl (a persistent container); ids come from data-media-id / data-item-id.
+  enableLongPressReorder(listEl, rowSelector, onReorder) {
+    if (!listEl || listEl.dataset.longPress) return;
+    listEl.dataset.longPress = '1';
+
+    const rowId = (row) => Number(row.dataset.mediaId || row.dataset.itemId);
+    const siblingsOf = (row) => Array.from(row.parentElement ? row.parentElement.children : [])
+      .filter(el => el.matches(rowSelector));
+    let press = null;
+
+    const onMove = (e) => {
+      if (!press || e.pointerId !== press.pointerId) return;
+      if (!press.started) {
+        if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > this.SLOP_PX) end(false);
+        return;
+      }
+      e.preventDefault();
+      // Near the top/bottom edge of the scrolling column, scroll it a little.
+      const scroller = listEl.closest('.op-list, .op-spotlight, .modal-dialog') || listEl;
+      const box = scroller.getBoundingClientRect();
+      if (e.clientY < box.top + 48) scroller.scrollTop -= 12;
+      else if (e.clientY > box.bottom - 48) scroller.scrollTop += 12;
+      const row = press.row;
+      const others = siblingsOf(row).filter(el => el !== row);
+      if (others.length === 0) return;
+      const centers = others.map(el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; });
+      const index = Logic.dropIndex(centers, e.clientY);
+      const current = siblingsOf(row).map(rowId);
+      const next = Logic.moveId(current, rowId(row), index);
+      if (next.join(',') === current.join(',')) return;
+      if (others[index]) others[index].before(row);
+      else others[others.length - 1].after(row);
+    };
+
+    const onUp = (e) => {
+      if (!press || e.pointerId !== press.pointerId) return;
+      end(e.type === 'pointerup');
+    };
+
+    // Touch: once the drag started, block the browser pan (touch-action set mid-gesture is not enough).
+    const onTouchMove = (e) => { if (press && press.started && e.cancelable) e.preventDefault(); };
+    const onBlock = (e) => { if (press) e.preventDefault(); };
+
+    const start = () => {
+      if (!press || AppState.mode !== 'editor' || !press.row.isConnected) { end(false); return; }
+      press.started = true;
+      this._dragging = true;
+      const row = press.row;
+      row.classList.add('is-dragging');
+      row.style.touchAction = 'none';
+      try { row.setPointerCapture(press.pointerId); } catch (_) { /* pointer already gone */ }
+      listEl.classList.add('is-reordering');
+      const sel = window.getSelection && window.getSelection();
+      if (sel && sel.removeAllRanges) sel.removeAllRanges();
+      if (navigator.vibrate) navigator.vibrate(10);
+    };
+
+    const end = (drop) => {
+      const p = press;
+      if (!p) return;
+      press = null;
+      clearTimeout(p.timer);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      if (!p.started) return;
+
+      // The click that follows a drop must not select the row or toggle a media.
+      if (drop) this._suppressClickUntil = Date.now() + 600;
+      p.row.classList.remove('is-dragging');
+      p.row.style.touchAction = '';
+      try { if (p.row.hasPointerCapture(p.pointerId)) p.row.releasePointerCapture(p.pointerId); } catch (_) { /* ignore */ }
+      listEl.classList.remove('is-reordering');
+      this._dragging = false;
+
+      const order = siblingsOf(p.row).map(rowId);
+      const changed = drop && order.join(',') !== p.startOrder.join(',');
+      const pending = this._renderPending;
+      this._renderPending = false;
+      if (changed) onReorder(order);
+      else if (pending || !drop) this.render(); // re-sync (cancelled drag or updates that arrived meanwhile)
+    };
+
+    listEl.addEventListener('pointerdown', (e) => {
+      if (press || AppState.mode !== 'editor' || !e.isPrimary) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const row = e.target.closest(rowSelector);
+      if (!row || !listEl.contains(row)) return;
+      if (e.target.closest('button, a, input, textarea, select')) return; // ⋯, status dot
+      const siblings = siblingsOf(row);
+      if (siblings.length < 2) return;
+      press = {
+        row,
+        pointerId: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        started: false,
+        startOrder: siblings.map(rowId),
+        timer: setTimeout(start, this.HOLD_MS)
+      };
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    });
+    listEl.addEventListener('touchmove', onTouchMove, { passive: false });
+    listEl.addEventListener('contextmenu', onBlock);
+    listEl.addEventListener('selectstart', onBlock);
+    listEl.addEventListener('click', (e) => {
+      if (Date.now() < (this._suppressClickUntil || 0)) {
+        this._suppressClickUntil = 0;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    }, true);
+  },
+
+  // Applies the new order locally at once; on error, reloads the shift.
+  async reorderParts(orderedIds) {
+    const items = (AppState.shiftData && AppState.shiftData.items) || [];
+    AppState.shiftData.items = Logic.sortByIds(items, orderedIds);
+    this.render();
+    try {
+      await Api.reorderItems(AppState.selectedShiftId, orderedIds);
+    } catch (err) {
+      window.showToast(err.message, 'error');
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+    }
+  },
+
+  async reorderMedias(orderedIds) {
+    const found = orderedIds.length ? this._findMedia(orderedIds[0]) : null;
+    if (!found) { this.render(); return; }
+    const { item } = found;
+    item.medias = Logic.sortByIds(item.medias || [], orderedIds);
+    this.render();
+    try {
+      await Api.reorderMedias(item.id, orderedIds);
+    } catch (err) {
+      window.showToast(err.message, 'error');
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+    }
+  }
 };
 
 window.UIDirector = UIDirector;
