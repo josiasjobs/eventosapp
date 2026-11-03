@@ -188,6 +188,7 @@ function setupEventListeners() {
   });
 
   window.addEventListener('init-app-data', () => {
+    if (!AppState.lanInfo) loadLanInfo();
     loadEventHierarchy();
     SocketClient.connect();
   });
@@ -265,6 +266,11 @@ function setupGlobalShortcuts() {
     }
 
     if (e.key === 'Escape') {
+      // The quick form's ✕ also reopens the day/shift drawer; Esc does the same
+      if (Modals.activeModal && Modals.activeModal.id === 'modal-quick-form' && Modals._quickFormCancel) {
+        Modals._quickFormCancel();
+        return;
+      }
       Modals.closeAll();
       return;
     }

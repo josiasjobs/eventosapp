@@ -69,7 +69,7 @@
   <!-- ============================================== -->
   <!-- MODAL 1: INITIAL SETUP (RF-01)                 -->
   <!-- ============================================== -->
-  <div class="modal-backdrop" id="modal-initial-setup">
+  <div class="modal-backdrop" id="modal-initial-setup" data-autofocus>
     <div class="modal-dialog">
       <form id="form-initial-setup" onsubmit="event.preventDefault(); Modals.submitSetup(this);">
         <div class="modal-header">
@@ -139,7 +139,7 @@
   <!-- ============================================== -->
   <!-- MODAL 3: ITEM EDITOR (RF-06)                   -->
   <!-- ============================================== -->
-  <div class="modal-backdrop" id="modal-item-editor">
+  <div class="modal-backdrop" id="modal-item-editor" data-autofocus>
     <div class="modal-dialog">
       <form id="form-item" onsubmit="event.preventDefault(); Modals.submitItem(this);">
         <div class="modal-header">
@@ -174,7 +174,7 @@
   <!-- ============================================== -->
   <!-- MODAL 4: MEDIA EDITOR (RF-07)                  -->
   <!-- ============================================== -->
-  <div class="modal-backdrop" id="modal-media-editor">
+  <div class="modal-backdrop" id="modal-media-editor" data-autofocus>
     <div class="modal-dialog">
       <form id="form-media" onsubmit="event.preventDefault(); Modals.submitMedia(this);">
         <div class="modal-header">
@@ -321,10 +321,6 @@
           <!-- Rendered by ui-director.js -->
         </div>
       </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="Modals.close('modal-schedule-picker')">Fechar</button>
-      </div>
     </div>
   </div>
 
@@ -347,7 +343,7 @@
   <!-- ============================================== -->
   <!-- MODAL: QUICK FORM (generic)                    -->
   <!-- ============================================== -->
-  <div class="modal-backdrop" id="modal-quick-form">
+  <div class="modal-backdrop" id="modal-quick-form" data-autofocus>
     <div class="modal-dialog">
       <form id="quick-form" novalidate>
         <div class="modal-header">

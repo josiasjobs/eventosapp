@@ -84,5 +84,11 @@
     return { left, top };
   }
 
-  return { menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
+  // YYYY-MM-DD of the given Date in local time (toISOString would give the UTC day)
+  function localDateISO(d) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  return { localDateISO, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
 });

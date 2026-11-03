@@ -31,6 +31,8 @@ const Api = {
         if (response.status === 401 && endpoint !== '/api/auth/login' && endpoint !== '/api/auth/upgrade') {
           // Token expired or invalid
           AppState.setAuth(null, null);
+          // Leave edit mode too, so a director re-login does not keep ⋯/+/⚙ visible
+          if (AppState.mode !== 'director') AppState.setMode('director');
           window.dispatchEvent(new CustomEvent('auth-required'));
         }
         const error = new Error(data.error || `Erro HTTP ${response.status}`);

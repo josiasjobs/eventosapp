@@ -82,15 +82,6 @@
 }
 .check-circle.is-done { background: var(--done); border-color: var(--done); color: #000; }
 
-/* Badges (legado) */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--fs-small);
-  color: var(--text-2);
-}
-
 /* Formularios */
 .form-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
 .form-label { font-size: var(--fs-small); color: var(--text-2); font-weight: 600; }
@@ -317,7 +308,6 @@
 }
 .lan-url:hover { background: var(--surface-2); }
 .lan-url:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
 
 /* Seletor de tipo de mídia */
 .type-picker { display: flex; gap: 8px; flex-wrap: wrap; }

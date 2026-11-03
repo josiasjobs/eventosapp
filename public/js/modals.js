@@ -1,6 +1,6 @@
 /**
  * EventosAPP - Modals & Dialogs Management
- * Setup, PIN keypad, Item/Media editors, Event settings, and LAN QR code pairing
+ * Setup, PIN keypad, Parte/Mídia editors, Event settings, and LAN QR code pairing
  */
 
 const Modals = {
@@ -15,8 +15,8 @@ const Modals = {
     this.activeModal = modal;
     document.body.style.overflow = 'hidden';
 
-    // Auto-focus first input if present
-    setTimeout(() => {
+    // Auto-focus the first input only on form dialogs (data-autofocus); other sheets must not pop the keyboard
+    if (modal.hasAttribute('data-autofocus')) setTimeout(() => {
       const firstInput = modal.querySelector('input:not([type="hidden"]), select, textarea');
       if (firstInput) firstInput.focus();
     }, 100);
@@ -458,7 +458,7 @@ const Modals = {
         title: 'Novo dia',
         fields: [
           { name: 'label', label: 'Rótulo', type: 'text', required: true },
-          { name: 'date', label: 'Data', type: 'date', value: new Date().toISOString().slice(0, 10), required: true }
+          { name: 'date', label: 'Data', type: 'date', value: Logic.localDateISO(new Date()), required: true }
         ],
         onSubmit: async v => { await Api.createDay({ eventId: AppState.event.id, label: v.label, date: v.date }); refresh(); back(); },
         onCancel: back
@@ -532,6 +532,7 @@ const Modals = {
 
     const cancel = () => { this.close('modal-quick-form'); if (onCancel) onCancel(); };
     document.getElementById('quick-form-cancel').onclick = cancel;
+    this._quickFormCancel = cancel; // Esc behaves like the ✕
     let busy = false;
     form.onsubmit = async e => {
       e.preventDefault();
@@ -566,6 +567,7 @@ const Modals = {
     }
     try {
       await Api.updateEvent(AppState.event.id, { name, category });
+      this.close('modal-settings'); // closing is the success feedback (no toast)
       window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
     } catch (err) {
       window.showToast(err.message, 'error');
@@ -596,6 +598,7 @@ const Modals = {
         adminPin: admPin || undefined
       });
       form.reset();
+      this.close('modal-settings'); // closing is the success feedback (no toast)
     } catch (err) {
       window.showToast(err.message, 'error');
     }
@@ -648,12 +651,19 @@ const Modals = {
   // LAN CONNECTION & QR CODE MODAL
   // ==========================================
   openLanModal() {
-    const qrImg = document.getElementById('lan-qrcode-img');
-    const urlText = document.getElementById('lan-url-display');
-
-    if (AppState.lanInfo) {
+    const fill = () => {
+      const qrImg = document.getElementById('lan-qrcode-img');
+      const urlText = document.getElementById('lan-url-display');
+      if (!AppState.lanInfo) return;
       if (qrImg) qrImg.src = AppState.lanInfo.qrCode || '';
       if (urlText) urlText.textContent = AppState.lanInfo.lanUrl || AppState.lanInfo.localUrl || 'Nenhum IP detectado';
+    };
+    fill();
+    // Not loaded yet (first setup, or login after the start screen): fetch it now and fill when it arrives
+    if (!AppState.lanInfo) {
+      Api.getLanInfo()
+        .then(info => { AppState.setLanInfo(info); fill(); })
+        .catch(err => console.warn('Could not load LAN info:', err));
     }
     this.open('modal-lan-connect');
   },

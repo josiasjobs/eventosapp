@@ -123,3 +123,8 @@ test('menuPosition limita dentro da viewport', () => {
   const p = L.menuPosition(c, 160, 100, 400, 800);
   assert.ok(p.top >= 8 && p.top <= 800 - 100 - 8);
 });
+
+test('localDateISO usa a data local (não UTC)', () => {
+  assert.equal(L.localDateISO(new Date(2026, 0, 5, 23, 30)), '2026-01-05');
+  assert.equal(L.localDateISO(new Date(2026, 10, 3, 0, 5)), '2026-11-03');
+});
