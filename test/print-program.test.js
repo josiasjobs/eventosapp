@@ -6,7 +6,6 @@ const data = {
   eventName: 'Congresso 2026',
   dayLabel: 'Sábado',
   shiftName: 'Manhã',
-  generatedAt: new Date(2026, 10, 3, 9, 5),
   items: [
     {
       scheduled_time: '09:30', title: 'Cântico e oração', speaker: '', description: '',
@@ -23,11 +22,17 @@ const data = {
   ]
 };
 
-test('cabeçalho traz evento, dia · turno e data de emissão', () => {
+test('cabeçalho traz evento e dia · turno, sem contagem nem data de emissão', () => {
   const html = buildProgramHtml(data);
   assert.match(html, /Congresso 2026/);
   assert.match(html, /Sábado · Manhã/);
-  assert.match(html, /03\/11\/2026 09:05/);
+  assert.doesNotMatch(html, /Gerado em|03\/11\/2026 09:05/);
+  assert.doesNotMatch(html, /\d+ mídias?</);
+});
+
+test('observações da parte ficam na mesma linha do orador', () => {
+  const html = buildProgramHtml(data);
+  assert.match(html, /<div class="meta">[\s\S]*?João Silva[\s\S]*?Com vídeo[\s\S]*?<\/div>/);
 });
 
 test('partes saem na ordem, numeradas, com horário', () => {
@@ -109,12 +114,11 @@ test('roteiro mostra o número do discurso e não a sequência das partes', () =
   assert.doesNotMatch(html, /class="num">\s*2\s*</);
 });
 
-test('roteiro só de discursos identifica isso no cabeçalho e conta só discursos', () => {
+test('roteiro só de discursos identifica isso no cabeçalho', () => {
   const html = buildProgramHtml({ ...data, onlyTalks: true, items: [
     { scheduled_time: '09:20', title: 'Discurso A', speaker: '', description: '', talk_number: 12, medias: [] }
   ] });
   assert.match(html, /Somente discursos/);
-  assert.match(html, /1 discurso\b/);
 });
 
 test('roteiro completo não mostra o aviso de discursos', () => {

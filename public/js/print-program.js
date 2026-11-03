@@ -15,12 +15,7 @@
     interview: 'Entrevista', theater: 'Teatro', other: 'Outro'
   };
 
-  function formatDateTime(d) {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-
-  // data: { eventName, dayLabel, shiftName, generatedAt: Date, onlyTalks?: boolean,
+  // data: { eventName, dayLabel, shiftName, onlyTalks?: boolean,
   //         items: [{ scheduled_time, title, speaker, description, talk_number, medias: [{ type, title, reference }] }] }
   // opts: { icon(name, size) -> svg string, typeIcons: { [mediaType]: iconName } } — sem eles, só texto
   function buildProgramHtml(data, opts = {}) {
@@ -28,7 +23,6 @@
     const typeIcons = opts.typeIcons || {};
     const context = [data.dayLabel, data.shiftName].filter(Boolean).join(' · ');
     const items = data.items || [];
-    const mediaCount = items.reduce((n, i) => n + (i.medias || []).length, 0);
 
     const mediaHtml = (m) => {
       const type = TYPE_LABELS[m.type] ? m.type : 'other';
@@ -53,8 +47,10 @@
             <span class="time">${esc(item.scheduled_time)}</span>
             <span class="part-title">${esc(item.title)}</span>
           </div>
-          ${item.speaker ? `<div class="meta">${icon('user', 14)}<span>${esc(item.speaker)}</span></div>` : ''}
-          ${item.description ? `<div class="meta notes">${esc(item.description)}</div>` : ''}
+          ${item.speaker || item.description ? `<div class="meta">
+            ${item.speaker ? `<span class="speaker">${icon('user', 14)}<span>${esc(item.speaker)}</span></span>` : ''}
+            ${item.description ? `<span class="notes">${esc(item.description)}</span>` : ''}
+          </div>` : ''}
           ${medias.length
             ? `<ul class="medias">${medias.map(mediaHtml).join('')}</ul>`
             : '<div class="empty">Sem mídias</div>'}
@@ -86,8 +82,6 @@
   .chip { display: inline-block; margin-top: 3px; padding: 1px 8px; border: 1px solid var(--line);
     border-radius: var(--radius); font-weight: 600; font-size: 9.5pt; }
   .chip-accent { border-color: var(--accent); color: var(--accent); }
-  .head-side { text-align: right; font-size: 8.5pt; color: var(--text-2); }
-  .head-side strong { display: block; font-size: 10pt; color: var(--text); }
 
   .part { break-inside: avoid; page-break-inside: avoid; margin-bottom: 10px;
     border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius); }
@@ -96,7 +90,10 @@
     font-size: 9.5pt; white-space: nowrap; }
   .time { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
   .part-title { font-weight: 700; font-size: 11.5pt; }
-  .meta { display: flex; align-items: center; gap: 6px; padding: 4px 10px 0; font-size: 9.5pt; color: var(--text-2); }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; row-gap: 2px;
+    padding: 4px 10px 0; font-size: 9.5pt; color: var(--text-2); }
+  .speaker { display: flex; align-items: center; gap: 6px; }
+  .speaker + .notes { padding-left: 12px; border-left: 1px solid var(--line); }
   .notes { color: var(--text-2); font-size: 9pt; }
 
   .medias { list-style: none; margin: 4px 0 0; padding: 0 10px 4px; }
@@ -116,12 +113,6 @@
       <h1>${esc(data.eventName)}</h1>
       <span class="chip">${esc(context)}</span>
       ${data.onlyTalks ? '<span class="chip chip-accent">Somente discursos</span>' : ''}
-    </div>
-    <div class="head-side">
-      <strong>${items.length} ${data.onlyTalks
-        ? (items.length === 1 ? 'discurso' : 'discursos')
-        : (items.length === 1 ? 'parte' : 'partes')} · ${mediaCount} ${mediaCount === 1 ? 'mídia' : 'mídias'}</strong>
-      Gerado em ${esc(formatDateTime(data.generatedAt))}
     </div>
   </header>
   ${items.map(partHtml).join('')}

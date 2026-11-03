@@ -185,7 +185,6 @@ function setupEventListeners() {
         eventName: AppState.event ? AppState.event.name : '',
         dayLabel: day ? day.label : '',
         shiftName: shift ? shift.name : '',
-        generatedAt: new Date(),
         onlyTalks,
         items
       });
