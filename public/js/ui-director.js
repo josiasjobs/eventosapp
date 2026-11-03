@@ -252,7 +252,7 @@ const UIDirector = {
     if (actionEl && row.contains(actionEl)) {
       e.stopPropagation();
       switch (action) {
-        case 'toggle-item': this.toggleItemCompleted(itemId); break;
+        case 'toggle-item': this.toggleItemDot(itemId); break;
         case 'import': this.importPlaylist(itemId); break;
         case 'move-up': this.moveItem(itemId, -1); break;
         case 'move-down': this.moveItem(itemId, 1); break;
@@ -277,7 +277,7 @@ const UIDirector = {
     if (actionEl) {
       switch (actionEl.dataset.action) {
         case 'add-item': Modals.openItemModal(); break;
-        case 'toggle-item': if (itemId) this.toggleItemCompleted(itemId); break;
+        case 'toggle-item': if (itemId) this.toggleItemDot(itemId); break;
         case 'add-media': if (itemId) Modals.openMediaModal(itemId); break;
         case 'import': if (itemId) this.importPlaylist(itemId); break;
         case 'edit-media': if (itemId && mediaId) Modals.openMediaModal(itemId, mediaId); break;
@@ -286,7 +286,7 @@ const UIDirector = {
       return;
     }
 
-    if (mediaId) this.handleMediaClick(e, mediaId);
+    if (mediaId) this.handleMediaClick(mediaId);
   },
 
   onNavClick(e) {
@@ -303,27 +303,64 @@ const UIDirector = {
   },
 
   // User Actions
-  async handleMediaClick(event, mediaId) {
-    try {
-      await Api.toggleMediaCompleted(mediaId);
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
+  toggleItemDot(itemId) {
+    const item = this._findItem(itemId);
+    if (item) this.setItemCompleted(item.id, !item.completed);
   },
 
-  async toggleItemCompleted(itemId) {
-    const item = AppState.shiftData && AppState.shiftData.items ? AppState.shiftData.items.find(i => i.id === itemId) : null;
-    if (!item) return;
+  _findItem(itemId) {
+    const items = AppState.shiftData && AppState.shiftData.items;
+    return items ? items.find(i => i.id === Number(itemId)) || null : null;
+  },
 
-    // Optimistic toggle
-    const newStatus = item.completed ? 0 : 1;
-    AppState.toggleItemCompleted(itemId, newStatus);
+  _findMedia(mediaId) {
+    const items = (AppState.shiftData && AppState.shiftData.items) || [];
+    for (const item of items) {
+      const media = (item.medias || []).find(m => m.id === Number(mediaId));
+      if (media) return { item, media };
+    }
+    return null;
+  },
 
+  async handleMediaClick(mediaId) {
+    const found = this._findMedia(mediaId);
+    if (!found) return;
+    const { item, media } = found;
+    const before = Boolean(media.completed);
+
+    // Optimistic update; the WebSocket echo re-applies the same value (idempotent).
+    AppState.toggleMediaCompleted(media.id, !before);
+
+    let resp;
     try {
-      await Api.toggleItemCompleted(itemId);
+      resp = await Api.toggleMediaCompleted(media.id);
     } catch (err) {
-      // Revert if error
-      AppState.toggleItemCompleted(itemId, item.completed ? 1 : 0);
+      AppState.toggleMediaCompleted(media.id, before);
+      window.showToast(err.message, 'error');
+      return;
+    }
+
+    const nowCompleted = resp && typeof resp.completed === 'boolean' ? resp.completed : !before;
+    AppState.toggleMediaCompleted(media.id, nowCompleted);
+    const target = Logic.itemCompletionAfterToggle(item.medias, Boolean(item.completed), nowCompleted);
+    if (target !== null) await this.setItemCompleted(item.id, target);
+  },
+
+  // Sets a part to the desired state. The server route flips, so re-read state first and
+  // only call when it differs; converge once if another device flipped in between.
+  async setItemCompleted(itemId, desired) {
+    const item = this._findItem(itemId);
+    if (!item || Boolean(item.completed) === desired) return;
+
+    AppState.toggleItemCompleted(item.id, desired);
+    try {
+      const resp = await Api.toggleItemCompleted(item.id);
+      if (resp && typeof resp.completed === 'boolean' && resp.completed !== desired) {
+        const resp2 = await Api.toggleItemCompleted(item.id);
+        AppState.toggleItemCompleted(item.id, resp2 && typeof resp2.completed === 'boolean' ? resp2.completed : desired);
+      }
+    } catch (err) {
+      AppState.toggleItemCompleted(item.id, !desired);
       window.showToast(err.message, 'error');
     }
   },
