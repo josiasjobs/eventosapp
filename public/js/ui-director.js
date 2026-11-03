@@ -1,35 +1,61 @@
 /**
  * EventosAPP - Director Mode UI Controller
- * Renders the Spotlight Card, Medias Checklist, Timeline and Director Navigation
+ * Renders the current part, the program list and the bottom navigation bar.
+ * Clicks are handled by event delegation on the containers (ids live in data-* attributes).
  */
 
+const uiEsc = (value) => Logic.escapeHtml(value);
+
+// Icon-only button helper (title + aria-label in Portuguese).
+const uiIconButton = (iconName, label, attrs = '', extraClass = '') =>
+  `<button type="button" class="icon-btn ${extraClass}" title="${uiEsc(label)}" aria-label="${uiEsc(label)}" ${attrs}>${icon(iconName)}</button>`;
+
 const UIDirector = {
-  // Media Type Badges and Icons helper
+  // Media type -> label + icon name
   getMediaTypeInfo(type) {
-    switch (type) {
-      case 'bible':
-        return { label: 'Bíblia', badgeClass: 'badge-media-bible', icon: '📖' };
-      case 'image':
-        return { label: 'Imagem', badgeClass: 'badge-media-image', icon: '🖼️' };
-      case 'video':
-        return { label: 'Vídeo', badgeClass: 'badge-media-video', icon: '🎬' };
-      case 'interview':
-        return { label: 'Entrevista', badgeClass: 'badge-media-interview', icon: '🎙️' };
-      case 'theater':
-        return { label: 'Teatro', badgeClass: 'badge-media-theater', icon: '🎭' };
-      default:
-        return { label: 'Conteúdo', badgeClass: 'badge-media-other', icon: '📁' };
-    }
+    const labels = {
+      bible: 'Bíblia',
+      image: 'Imagem',
+      video: 'Vídeo',
+      interview: 'Entrevista',
+      theater: 'Teatro'
+    };
+    const known = Object.prototype.hasOwnProperty.call(labels, type);
+    return {
+      label: known ? labels[type] : 'Conteúdo',
+      icon: (window.MEDIA_TYPE_ICONS && MEDIA_TYPE_ICONS[known ? type : 'other']) || 'file'
+    };
   },
 
   // Render whole view
   render() {
+    this.bindEvents();
+    this.renderShiftLabel();
     this.renderSpotlight();
     this.renderTimeline();
     this.renderNavigationToolbar();
   },
 
-  // 1. Render Spotlight Hero Card
+  // "Dia · Turno" label in the top bar chip
+  renderShiftLabel() {
+    const labelEl = document.getElementById('shift-label');
+    if (!labelEl) return;
+    const day = (AppState.days || []).find(d => d.id === AppState.selectedDayId);
+    const shift = day && (day.shifts || []).find(s => s.id === AppState.selectedShiftId);
+    labelEl.textContent = day && shift ? `${day.label} · ${shift.name}` : 'Sem turno';
+  },
+
+  emptyStateHtml(iconName, text, addAction, addLabel) {
+    return `
+      <div class="empty-state">
+        <span class="empty-state-icon">${icon(iconName, 32)}</span>
+        <p>${uiEsc(text)}</p>
+        ${addAction ? `<button type="button" class="btn btn-accent edit-only" data-action="${addAction}">${icon('plus')}<span>${uiEsc(addLabel)}</span></button>` : ''}
+      </div>
+    `;
+  },
+
+  // 1. Current part (title, details, notes, medias)
   renderSpotlight() {
     const spotlightContainer = document.getElementById('spotlight-container');
     if (!spotlightContainer) return;
@@ -38,363 +64,236 @@ const UIDirector = {
     const items = AppState.shiftData.items || [];
 
     if (!currentItem) {
-      spotlightContainer.innerHTML = `
-        <div class="spotlight-card">
-          <div class="spotlight-header">
-            <span class="badge badge-warning">Aguardando Início</span>
-          </div>
-          <div class="spotlight-content">
-            <h2 class="spotlight-title" style="font-size: 1.5rem; color: var(--text-2);">
-              ${items.length === 0 ? 'Nenhuma midia cadastrada.' : 'Nenhum item em execução no momento.'}
-            </h2>
-            <p style="color: var(--text-2); margin-bottom: 20px;">
-              ${items.length === 0 ? 'Ative o Modo Edição para adicionar itens à programação.' : 'Selecione uma parte no programa ao lado para colocá-lo Em Execução.'}
-            </p>
-            ${AppState.mode === 'editor' && items.length === 0 ? `
-              <button class="btn btn-primary" onclick="Modals.openItemModal()">+ Criar Primeiro Item</button>
-            ` : ''}
-          </div>
-        </div>
-      `;
+      spotlightContainer.innerHTML = items.length === 0
+        ? this.emptyStateHtml('list', 'Sem partes neste turno', 'add-item', 'Nova parte')
+        : this.emptyStateHtml('list', 'Escolha uma parte na programação');
       return;
     }
 
     const medias = currentItem.medias || [];
-    const completedCount = medias.filter(m => m.completed).length;
-    const progressPercent = medias.length > 0 ? Math.round((completedCount / medias.length) * 100) : 0;
+    const status = Logic.itemStatus(currentItem);
+    const itemId = Number(currentItem.id);
 
-    let mediasHtml = '';
-    if (medias.length === 0) {
-      mediasHtml = `
-        <div style="padding: 16px; text-align: center; color: var(--text-2); font-size: 0.9rem;">
-          Nenhuma mídia vinculada a este item.
-        </div>
-      `;
-    } else {
-      medias.forEach((media, index) => {
+    const mediasHtml = medias.length === 0
+      ? this.emptyStateHtml('file', 'Sem mídias', 'add-media', 'Nova mídia')
+      : medias.map(media => {
         const typeInfo = this.getMediaTypeInfo(media.type);
-        mediasHtml += `
-          <div class="media-item-row ${media.completed ? 'completed' : ''}" 
-               id="media-row-${media.id}" 
-               data-media-id="${media.id}" 
-               onclick="UIDirector.handleMediaClick(event, ${media.id})">
-            
-            <button class="media-drag-handle edit-only" 
-                    type="button" 
-                    title="Arrastar para reordenar" 
-                    onclick="event.stopPropagation()">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="9" cy="5" r="1.8"/>
-                <circle cx="15" cy="5" r="1.8"/>
-                <circle cx="9" cy="12" r="1.8"/>
-                <circle cx="15" cy="12" r="1.8"/>
-                <circle cx="9" cy="19" r="1.8"/>
-                <circle cx="15" cy="19" r="1.8"/>
+        const done = !!media.completed;
+        return `
+          <div class="media-row${done ? ' is-done' : ''}" data-media-id="${Number(media.id)}"
+               role="button" tabindex="0" aria-pressed="${done}">
+            <button class="media-drag-handle edit-only" type="button" title="Arrastar para reordenar" aria-label="Arrastar para reordenar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/>
+                <circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/>
+                <circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/>
               </svg>
             </button>
-
-            <div class="media-left-group">
-              <div class="media-check-circle" title="${media.completed ? 'Reabrir mídia' : 'Marcar como concluída'}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              </div>
-
-              <div class="media-text-info">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="badge ${typeInfo.badgeClass}" title="${typeInfo.label}">${typeInfo.icon}</span>
-                  <span class="media-title">${media.title}</span>
-                </div>
-                ${media.reference ? `<span class="media-reference">Ref: ${media.reference}</span>` : ''}
-              </div>
-            </div>
-
-            <div class="media-right-group">
-              <!-- Edit mode only controls -->
-              <div class="media-editor-actions" onclick="event.stopPropagation()">
-                <button class="action-btn-sm" title="Editar mídia" onclick="Modals.openMediaModal(${currentItem.id}, ${media.id})">✏️</button>
-                <button class="action-btn-sm delete-btn" title="Excluir mídia" onclick="UIDirector.deleteMedia(${media.id})">🗑️</button>
-              </div>
-            </div>
-
+            <span class="check-circle${done ? ' is-done' : ''}">${icon('check', 16)}</span>
+            <span class="media-type-icon" title="${uiEsc(typeInfo.label)}">${icon(typeInfo.icon)}</span>
+            <span class="media-text">
+              <span class="media-title">${uiEsc(media.title)}</span>
+              ${media.reference ? `<span class="media-notes">${uiEsc(media.reference)}</span>` : ''}
+            </span>
+            <span class="row-actions edit-only">
+              ${uiIconButton('pencil', 'Editar mídia', 'data-action="edit-media"')}
+              ${uiIconButton('trash', 'Excluir mídia', 'data-action="delete-media"', 'is-danger')}
+            </span>
           </div>
         `;
-      });
-    }
+      }).join('');
 
     spotlightContainer.innerHTML = `
-      <div class="spotlight-card is-live">
-        <div class="spotlight-header">
-          <div class="spotlight-status-group">
-            <span class="badge badge-live">
-              <span class="live-pulse-dot" style="width: 6px; height: 6px;"></span>
-              AO VIVO
-            </span>
-            ${currentItem.activity_type ? `<span class="badge badge-primary">${currentItem.activity_type}</span>` : ''}
-            ${currentItem.completed ? `<span class="badge badge-success" style="font-size: 0.65rem; padding: 1px 6px;">CONCLUÍDO</span>` : ''}
-          </div>
-
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="spotlight-time-badge" title="Horário Previsto">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-              ${currentItem.scheduled_time}
-            </div>
-
-            <!-- Spotlight edit actions -->
-            <div class="spotlight-editor-actions">
-              <button class="btn btn-sm btn-secondary" onclick="Modals.openItemModal(${currentItem.id})">✏️ Editar Item</button>
-            </div>
-          </div>
+      <article class="current-part" data-item-id="${itemId}">
+        <div class="current-head">
+          <h1 class="current-title" id="current-item-title">${uiEsc(currentItem.title)}</h1>
+          <button type="button" class="dot dot-lg is-${status}" data-action="toggle-item" data-item-id="${itemId}"
+                  title="${status === 'done' ? 'Marcar parte como pendente' : 'Marcar parte como concluída'}"
+                  aria-label="${status === 'done' ? 'Marcar parte como pendente' : 'Marcar parte como concluída'}"
+                  aria-pressed="${status === 'done'}"></button>
         </div>
 
-        <div class="spotlight-content">
-          <h1 class="spotlight-title" id="current-item-title">${currentItem.title}</h1>
-
-          <div class="spotlight-meta">
-            ${currentItem.speaker ? `
-              <div class="spotlight-meta-item speaker">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                <span>${currentItem.speaker}</span>
-              </div>
-            ` : ''}
-          </div>
-
-          ${currentItem.description ? `
-            <div class="spotlight-description">${currentItem.description}</div>
-          ` : ''}
+        <div class="current-meta">
+          ${currentItem.scheduled_time ? `<span class="meta-item tnum">${icon('clock', 16)}<span>${uiEsc(currentItem.scheduled_time)}</span></span>` : ''}
+          ${currentItem.speaker ? `<span class="meta-item">${icon('user', 16)}<span>${uiEsc(currentItem.speaker)}</span></span>` : ''}
         </div>
 
-        <!-- Medias Section -->
-        <div class="medias-section">
-          <div class="medias-section-header">
-            <div class="medias-section-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-              </svg>
-              <span>Mídias do Item</span>
-            </div>
+        ${currentItem.description ? `<p class="current-notes">${uiEsc(currentItem.description)}</p>` : ''}
 
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span class="medias-progress-stats" id="medias-stats-text">${completedCount} de ${medias.length} concluídas (${progressPercent}%)</span>
-${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn" title="Importar mídia" onclick="UIDirector.importPlaylist(${currentItem.id})">Importar</button>` : ''}<button class="btn btn-sm btn-secondary edit-only" onclick="Modals.openMediaModal(${currentItem.id})">+ Adicionar Mídia</button>
-            </div>
-          </div>
-
-          <div class="progress-container" style="margin-bottom: 14px;">
-            <div class="progress-bar-fill" id="medias-progress-fill" style="width: ${progressPercent}%;"></div>
-          </div>
-
-          <div class="medias-list" id="medias-checklist-list">
-            ${mediasHtml}
-          </div>
+        <div class="media-list" id="medias-checklist-list">
+          ${mediasHtml}
         </div>
 
-      </div>
+        <div class="edit-tools edit-only">
+          ${medias.length > 0 ? `<button type="button" class="btn btn-secondary" data-action="add-media">${icon('plus')}<span>Nova mídia</span></button>` : ''}
+          <button type="button" class="btn btn-secondary" data-action="import">${icon('upload')}<span>Importar</span></button>
+        </div>
+      </article>
     `;
 
     this.setupMediaDragAndDrop(currentItem.id);
   },
 
-  // 2. Render Timeline (Program Schedule on Right)
+  // 2. Program list (left column on tablet, drawer on phone)
   renderTimeline() {
     const timelineContainer = document.getElementById('timeline-container');
-    if (!timelineContainer) return;
+    const modalTimelineContainer = document.getElementById('timeline-modal-container');
+    if (!timelineContainer && !modalTimelineContainer) return;
 
     const items = AppState.shiftData.items || [];
     const currentItemId = AppState.currentItemId;
-    const currentIndex = items.findIndex(i => i.id === currentItemId);
 
-    let itemsHtml = '';
-    if (items.length === 0) {
-      itemsHtml = `
-        <div class="empty-state">
-          <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-          </svg>
-          <p>Nenhuma parte programada para este turno.</p>
+    const rowsHtml = items.map(item => {
+      const id = Number(item.id);
+      const isCurrent = item.id === currentItemId;
+      const status = Logic.itemStatus(item);
+      const label = status === 'done' ? 'Marcar parte como pendente' : 'Marcar parte como concluída';
+      return `
+        <div class="row part-row${isCurrent ? ' is-current' : ''}${status === 'done' ? ' is-done' : ''}"
+             data-item-id="${id}" role="button" tabindex="0"${isCurrent ? ' aria-current="true"' : ''}>
+          <span class="part-time tnum">${uiEsc(item.scheduled_time)}</span>
+          <span class="part-title">${uiEsc(item.title)}</span>
+          <span class="row-actions edit-only">
+            ${uiIconButton('upload', 'Importar mídia', 'data-action="import"')}
+            ${uiIconButton('chevron-left', 'Mover para cima', 'data-action="move-up"', 'rot-up')}
+            ${uiIconButton('chevron-right', 'Mover para baixo', 'data-action="move-down"', 'rot-down')}
+            ${uiIconButton('pencil', 'Editar parte', 'data-action="edit-item"')}
+            ${uiIconButton('trash', 'Excluir parte', 'data-action="delete-item"', 'is-danger')}
+          </span>
+          <button type="button" class="dot is-${status}" data-action="toggle-item"
+                  title="${label}" aria-label="${label}" aria-pressed="${status === 'done'}"></button>
         </div>
       `;
-    } else {
-      items.forEach((item, index) => {
-        const isCurrent = item.id === currentItemId;
-        const isPassed = currentIndex !== -1 && index < currentIndex;
-        const mediasCount = item.medias ? item.medias.length : 0;
-        const mediasDone = item.medias ? item.medias.filter(m => m.completed).length : 0;
+    }).join('');
 
-        itemsHtml += `
-          <div class="timeline-item-card ${isCurrent ? 'is-current' : ''} ${isPassed ? 'is-passed' : ''} ${item.completed ? 'is-completed' : ''}" 
-               id="timeline-item-${item.id}"
-               onclick="UIDirector.handleTimelineItemClick(${item.id})">
-            
-            <div class="item-card-left">
-              <span class="item-order-number">${index + 1}</span>
-
-              <div class="item-details">
-                <div class="item-header-meta">
-                  ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn" title="Importar mídia" onclick="UIDirector.importPlaylist(${item.id})">Importar</button>` : ''}
-                  <span class="item-scheduled-time">${item.scheduled_time}</span>
-                  ${item.activity_type ? `<span class="badge badge-primary" style="font-size: 0.65rem; padding: 1px 6px;">${item.activity_type}</span>` : ''}
-                  ${isCurrent ? `<span class="badge badge-live" style="font-size: 0.65rem; padding: 1px 6px;">AO VIVO</span>` : ''}
-                  ${item.completed ? `<span class="badge badge-success" style="font-size: 0.65rem; padding: 1px 6px;">CONCLUÍDO</span>` : ''}
-                </div>
-                <span class="item-name ${item.completed ? 'item-completed-text' : ''}">${item.title}</span>
-                ${item.speaker ? `<span class="item-speaker-preview">Por: ${item.speaker}</span>` : ''}
-              </div>
-            </div>
-
-            <div class="item-card-right">
-              ${mediasCount > 0 ? `
-                <span class="media-pill-counter" title="${mediasDone} de ${mediasCount} mídias concluídas">
-                  ${mediasDone}/${mediasCount} mídias
-                </span>
-              ` : ''}
-
-              <!-- Item Complete Button -->
-              <button class="btn-item-complete ${item.completed ? 'completed' : ''}" 
-                      title="${item.completed ? 'Marcar parte como pendente' : 'Marcar parte como concluída'}"
-                      onclick="event.stopPropagation(); UIDirector.toggleItemCompleted(${item.id})">
-                <div class="item-check-icon">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
-                <span class="btn-item-complete-label">${item.completed ? 'Concluído' : 'Concluir'}</span>
-              </button>
-
-              <!-- Edit Mode Item Actions -->
-              <div class="timeline-item-actions" onclick="event.stopPropagation()">
-                ${!isCurrent ? `
-                  <button class="action-btn-sm play-btn" title="Selecionar este item" onclick="UIDirector.setCurrentItem(${item.id})">▶</button>
-                ` : ''}
-                <button class="action-btn-sm" title="Mover para cima" onclick="UIDirector.moveItem(${item.id}, -1)">▲</button>
-                <button class="action-btn-sm" title="Mover para baixo" onclick="UIDirector.moveItem(${item.id}, 1)">▼</button>
-                <button class="action-btn-sm" title="Editar item" onclick="Modals.openItemModal(${item.id})">✏️</button>
-                <button class="action-btn-sm delete-btn" title="Excluir item" onclick="UIDirector.deleteItem(${item.id})">🗑️</button>
-              </div>
-            </div>
-
-          </div>
-        `;
-      });
-    }
-
-    const shiftProgress = items.length > 0 && currentIndex !== -1
-      ? Math.round(((currentIndex + 1) / items.length) * 100)
-      : 0;
-
-    const timelineCardHtml = `
-      <div class="timeline-card">
-        <div class="timeline-header">
-          <div class="timeline-title-row">
-            <h3 class="timeline-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="8" y1="6" x2="21" y2="6"></line>
-                <line x1="8" y1="12" x2="21" y2="12"></line>
-                <line x1="8" y1="18" x2="21" y2="18"></line>
-                <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                <line x1="3" y1="18" x2="3.01" y2="18"></line>
-              </svg>
-              <span>Programa</span>
-            </h3>
-            <span style="font-size: 0.8rem; color: var(--text-2); font-weight: 600;">
-              ${items.length} ${items.length === 1 ? 'item' : 'itens'}
-            </span>
-          </div>
-
-          <div class="progress-container">
-            <div class="progress-bar-fill" style="width: ${shiftProgress}%;"></div>
-          </div>
+    const listHtml = items.length === 0
+      ? this.emptyStateHtml('list', 'Sem partes neste turno', 'add-item', 'Nova parte')
+      : `
+        <div class="part-list">${rowsHtml}</div>
+        <div class="list-add edit-only">
+          <button type="button" class="btn btn-secondary" data-action="add-item">${icon('plus')}<span>Nova parte</span></button>
         </div>
+      `;
 
-        <div class="timeline-items-list" id="timeline-list">
-          ${itemsHtml}
-        </div>
-
-        <!-- Add Item button (shown in Edit Mode) -->
-        <div style="padding: 0 var(--spacing-md) var(--spacing-md);">
-          <button class="btn-add-item-dashed" onclick="Modals.openItemModal()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            <span>Cadastrar nova parte</span>
-          </button>
-        </div>
-
-      </div>
-    `;
-
-    if (timelineContainer) timelineContainer.innerHTML = timelineCardHtml;
-    const modalTimelineContainer = document.getElementById('timeline-modal-container');
-    if (modalTimelineContainer) modalTimelineContainer.innerHTML = timelineCardHtml;
+    [timelineContainer, modalTimelineContainer].forEach(container => {
+      if (!container) return;
+      container.innerHTML = listHtml;
+      this.scrollToCurrent(container);
+    });
   },
 
-  // 3. Render Navigation Toolbar (◀ Anterior / Seletor de Programação / Próximo ▶)
+  scrollToCurrent(container) {
+    const current = container && container.querySelector('.row.is-current');
+    if (current && current.offsetParent !== null) current.scrollIntoView({ block: 'nearest' });
+  },
+
+  // 3. Bottom bar: ◀ ☰ ▶ (☰ only on phone)
   renderNavigationToolbar() {
     const navContainer = document.getElementById('director-nav-container');
     if (!navContainer) return;
 
     const items = AppState.shiftData.items || [];
-    const currentItemId = AppState.currentItemId;
-    const currentIndex = items.findIndex(i => i.id === currentItemId);
+    const currentIndex = items.findIndex(i => i.id === AppState.currentItemId);
 
     const hasPrev = currentIndex > 0;
     const hasNext = currentIndex !== -1 && currentIndex < items.length - 1;
 
     navContainer.innerHTML = `
-      <div class="director-nav-toolbar">
-        <button class="btn btn-secondary nav-direction-btn" 
-                id="btn-nav-prev"
-                ${!hasPrev ? 'disabled style="opacity: 0.35; cursor: not-allowed;"' : ''}
-                onclick="UIDirector.navigatePrevious()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-          <span>Anterior</span>
-          
-        </button>
-
-        <!-- Botão Central: Seletor Manual de Programação (abre modal no celular e desktop) -->
-        <button class="btn-schedule-picker-trigger" 
-                id="btn-open-schedule-modal"
-                onclick="Modals.open('modal-schedule-picker')"
-                title="Abrir Programação do Turno para seleção manual de itens">
-          <div class="schedule-btn-top">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="8" y1="6" x2="21" y2="6"></line>
-              <line x1="8" y1="12" x2="21" y2="12"></line>
-              <line x1="8" y1="18" x2="21" y2="18"></line>
-              <line x1="3" y1="6" x2="3.01" y2="6"></line>
-              <line x1="3" y1="12" x2="3.01" y2="12"></line>
-              <line x1="3" y1="18" x2="3.01" y2="18"></line>
-            </svg>
-            <span class="schedule-btn-text">${items.length > 0 && currentIndex !== -1 ? `Item ${currentIndex + 1} de ${items.length}` : 'Programação'}</span>
-          </div>
-          <span class="schedule-btn-sub">Ver Lista</span>
-        </button>
-
-        <button class="btn btn-live nav-direction-btn" 
-                id="btn-nav-next"
-                ${!hasNext ? 'disabled style="opacity: 0.35; cursor: not-allowed;"' : ''}
-                onclick="UIDirector.navigateNext()">
-          <span>Próximo</span>
-        
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
-      </div>
+      ${uiIconButton('chevron-left', 'Parte anterior', `id="btn-nav-prev" data-action="prev"${hasPrev ? '' : ' disabled'}`, 'nav-btn')}
+      ${uiIconButton('list', 'Programação', 'id="btn-open-schedule-modal" data-action="open-list"', 'nav-btn phone-only')}
+      ${uiIconButton('chevron-right', 'Próxima parte', `id="btn-nav-next" data-action="next"${hasNext ? '' : ' disabled'}`, 'nav-btn nav-next btn-accent')}
     `;
+  },
+
+  // Event delegation (bound once; containers persist across renders)
+  bindEvents() {
+    if (this._bound) return;
+    this._bound = true;
+
+    ['timeline-container', 'timeline-modal-container'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', (e) => this.onListClick(e));
+    });
+
+    const spotlight = document.getElementById('spotlight-container');
+    if (spotlight) spotlight.addEventListener('click', (e) => this.onSpotlightClick(e));
+
+    const nav = document.getElementById('director-nav-container');
+    if (nav) nav.addEventListener('click', (e) => this.onNavClick(e));
+
+    // Enter/Space on focusable rows behaves like a tap
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const t = e.target;
+      if (t && t.matches && t.matches('.part-row[data-item-id], .media-row[data-media-id]')) {
+        e.preventDefault();
+        t.click();
+      }
+    });
+  },
+
+  onListClick(e) {
+    const actionEl = e.target.closest('[data-action]');
+    const row = e.target.closest('.row[data-item-id]');
+    const action = actionEl ? actionEl.dataset.action : null;
+
+    if (!row) {
+      if (action === 'add-item') Modals.openItemModal();
+      return;
+    }
+
+    const itemId = Number(row.dataset.itemId);
+    if (actionEl && row.contains(actionEl)) {
+      e.stopPropagation();
+      switch (action) {
+        case 'toggle-item': this.toggleItemCompleted(itemId); break;
+        case 'import': this.importPlaylist(itemId); break;
+        case 'move-up': this.moveItem(itemId, -1); break;
+        case 'move-down': this.moveItem(itemId, 1); break;
+        case 'edit-item': Modals.openItemModal(itemId); break;
+        case 'delete-item': this.deleteItem(itemId); break;
+      }
+      return;
+    }
+
+    this.handleTimelineItemClick(itemId);
+  },
+
+  onSpotlightClick(e) {
+    if (e.target.closest('.media-drag-handle')) return;
+
+    const part = e.target.closest('.current-part[data-item-id]');
+    const itemId = part ? Number(part.dataset.itemId) : null;
+    const actionEl = e.target.closest('[data-action]');
+    const mediaRow = e.target.closest('.media-row[data-media-id]');
+    const mediaId = mediaRow ? Number(mediaRow.dataset.mediaId) : null;
+
+    if (actionEl) {
+      switch (actionEl.dataset.action) {
+        case 'add-item': Modals.openItemModal(); break;
+        case 'toggle-item': if (itemId) this.toggleItemCompleted(itemId); break;
+        case 'add-media': if (itemId) Modals.openMediaModal(itemId); break;
+        case 'import': if (itemId) this.importPlaylist(itemId); break;
+        case 'edit-media': if (itemId && mediaId) Modals.openMediaModal(itemId, mediaId); break;
+        case 'delete-media': if (mediaId) this.deleteMedia(mediaId); break;
+      }
+      return;
+    }
+
+    if (mediaId) this.handleMediaClick(e, mediaId);
+  },
+
+  onNavClick(e) {
+    const actionEl = e.target.closest('[data-action]');
+    if (!actionEl || actionEl.disabled) return;
+    switch (actionEl.dataset.action) {
+      case 'prev': this.navigatePrevious(); break;
+      case 'next': this.navigateNext(); break;
+      case 'open-list':
+        Modals.open('modal-schedule-picker');
+        this.scrollToCurrent(document.getElementById('timeline-modal-container'));
+        break;
+    }
   },
 
   // User Actions
@@ -473,10 +372,10 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
   },
 
   async deleteItem(itemId) {
-    if (!confirm('Deseja realmente excluir este item e suas mídias?')) return;
+    if (!confirm('Deseja realmente excluir esta parte e suas mídias?')) return;
     try {
       await Api.deleteItem(itemId);
-      window.showToast('Item excluído.', 'success');
+      window.showToast('Parte excluída.', 'success');
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
     } catch (err) {
       window.showToast(err.message, 'error');
@@ -509,7 +408,7 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
     const list = document.getElementById('medias-checklist-list');
     if (!list) return;
 
-    const rows = list.querySelectorAll('.media-item-row');
+    const rows = list.querySelectorAll('.media-row');
     if (rows.length < 2) return;
 
     let draggedRow = null;
@@ -591,7 +490,7 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
         if (!activeTouchRow) return;
         const touch = e.touches[0];
         const elem = document.elementFromPoint(touch.clientX, touch.clientY);
-        const targetRow = elem ? elem.closest('.media-item-row') : null;
+        const targetRow = elem ? elem.closest('.media-row') : null;
 
         rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
         if (targetRow && targetRow !== activeTouchRow && list.contains(targetRow)) {
@@ -608,7 +507,7 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
 
         const changedTouch = e.changedTouches[0];
         const elem = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY);
-        const targetRow = elem ? elem.closest('.media-item-row') : null;
+        const targetRow = elem ? elem.closest('.media-row') : null;
 
         rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
 
