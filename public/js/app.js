@@ -154,6 +154,28 @@ function setupEventListeners() {
     settingsBtn.addEventListener('click', () => Modals.openSettingsModal());
   }
 
+  // Printed run sheet of the selected shift (edit mode only)
+  const printBtn = document.getElementById('btn-print-program');
+  if (printBtn) {
+    printBtn.addEventListener('click', () => {
+      const items = (AppState.shiftData && AppState.shiftData.items) || [];
+      if (items.length === 0) {
+        window.showToast('Sem partes neste turno', 'error');
+        return;
+      }
+      const day = (AppState.days || []).find(d => d.id === AppState.selectedDayId);
+      const shift = day && (day.shifts || []).find(s => s.id === AppState.selectedShiftId);
+      const opened = PrintProgram.printProgram({
+        eventName: AppState.event ? AppState.event.name : '',
+        dayLabel: day ? day.label : '',
+        shiftName: shift ? shift.name : '',
+        generatedAt: new Date(),
+        items
+      });
+      if (!opened) window.showToast('O navegador bloqueou a nova aba. Libere pop-ups para este endereço.', 'error');
+    });
+  }
+
   // Logout (connection sheet footer)
   const logoutBtn = document.getElementById('btn-logout');
   if (logoutBtn) {
