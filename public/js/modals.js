@@ -382,8 +382,8 @@ const Modals = {
     let html = '';
     days.forEach(day => {
       const shifts = day.shifts || [];
-      html += `<div class="row" style="cursor: default; font-weight: 700;">
-        <span style="flex: 1;">${esc(day.label)} <span style="font-weight: 400; color: var(--text-2);">${esc(day.date)}</span></span>`;
+      html += `<div class="row row-day">
+        <span class="row-grow">${esc(day.label)} <span class="row-muted-date">${esc(day.date)}</span></span>`;
       if (editing) {
         html += btn('add-shift', `data-id="${Number(day.id)}"`, 'plus', 'Novo turno', 'edit-only');
         html += moreBtn('day-menu', day.id, 'Ações do dia');
@@ -391,17 +391,17 @@ const Modals = {
       html += '</div>';
       shifts.forEach(shift => {
         const selected = shift.id === AppState.selectedShiftId;
-        html += `<div class="row${selected ? ' selected' : ''}" data-action="select-shift" data-day-id="${Number(day.id)}" data-id="${Number(shift.id)}" role="button" tabindex="0" style="padding-left: 28px;">
-          <span style="flex: 1;${selected ? ' color: var(--accent); font-weight: 700;' : ''}">${esc(shift.name)}</span>`;
-        if (selected) html += `<span style="color: var(--accent);">${window.icon('check', 20)}</span>`;
+        html += `<div class="row row-shift${selected ? ' selected' : ''}" data-action="select-shift" data-day-id="${Number(day.id)}" data-id="${Number(shift.id)}" role="button" tabindex="0">
+          <span class="row-grow">${esc(shift.name)}</span>`;
+        if (selected) html += `<span class="row-accent">${window.icon('check', 20)}</span>`;
         if (editing) html += moreBtn('shift-menu', shift.id, 'Ações do turno');
         html += '</div>';
       });
     });
     if (editing) {
-      html += `<div class="row" data-action="add-day" role="button" tabindex="0" style="color: var(--accent);">${window.icon('plus', 20)}<span>Novo dia</span></div>`;
+      html += `<div class="row row-accent" data-action="add-day" role="button" tabindex="0">${window.icon('plus', 20)}<span>Novo dia</span></div>`;
     }
-    if (!days.length) html = '<div class="row" style="cursor: default;">Nenhum dia cadastrado.</div>';
+    if (!days.length) html = '<div class="row row-static">Nenhum dia cadastrado.</div>';
 
     const container = document.getElementById('shift-picker-container');
     if (container) container.innerHTML = html;
