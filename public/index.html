@@ -281,26 +281,13 @@
 
       <div class="modal-body">
         <div class="tabs-header">
-          <button class="tab-btn active" onclick="switchModalTab('tab-structure', this)">Dias & Turnos</button>
-          <button class="tab-btn" onclick="switchModalTab('tab-general', this)">Dados do Evento</button>
+          <button class="tab-btn active" onclick="switchModalTab('tab-general', this)">Dados do Evento</button>
           <button class="tab-btn" onclick="switchModalTab('tab-security', this)">Segurança & PINs</button>
           <button class="tab-btn" onclick="switchModalTab('tab-backup', this)">Backup & Restauração</button>
         </div>
 
-        <!-- Tab 1: Structure -->
-        <div class="tab-pane active" id="tab-structure">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-2);">Estrutura
-              Organizacional</span>
-            <button class="btn btn-sm btn-primary" onclick="Modals.promptAddDay()">+ Novo Dia</button>
-          </div>
-          <div class="entity-management-list" id="settings-structure-container">
-            <!-- Rendered by modals.js -->
-          </div>
-        </div>
-
         <!-- Tab 2: General Info -->
-        <div class="tab-pane" id="tab-general">
+        <div class="tab-pane active" id="tab-general">
           <form id="form-settings-general" onsubmit="event.preventDefault(); Modals.submitSettingsGeneral(this);">
             <div class="form-group">
               <label class="form-label" for="settings-event-name">Nome do Evento</label>
@@ -466,6 +453,40 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="Modals.close('modal-schedule-picker')">Fechar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: DAY & SHIFT DRAWER                      -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-shift-picker">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title">Dia e turno</h2>
+        <button type="button" class="icon-btn" onclick="Modals.close('modal-shift-picker')" title="Fechar"
+          aria-label="Fechar" data-icon="x"></button>
+      </div>
+      <div class="modal-body" style="padding: 0;" id="shift-picker-container">
+        <!-- Rendered by modals.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: QUICK FORM (generic)                    -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-quick-form">
+    <div class="modal-dialog">
+      <form id="quick-form" novalidate>
+        <div class="modal-header">
+          <h2 class="modal-title" id="quick-form-title"></h2>
+          <button type="button" class="icon-btn" id="quick-form-cancel" title="Cancelar" aria-label="Cancelar"
+            data-icon="x"></button>
+          <button type="submit" class="icon-btn btn-accent" title="Salvar" aria-label="Salvar"
+            data-icon="check"></button>
+        </div>
+        <div class="modal-body" id="quick-form-fields"></div>
+      </form>
     </div>
   </div>
 

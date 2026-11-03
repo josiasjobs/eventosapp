@@ -315,50 +315,8 @@ const Modals = {
   // SETTINGS MODAL (STRUCTURE, EVENT, PINS)
   // ==========================================
   openSettingsModal() {
-    this.renderSettingsStructure();
     this.renderSettingsGeneral();
     this.open('modal-settings');
-  },
-
-  renderSettingsStructure() {
-    const container = document.getElementById('settings-structure-container');
-    if (!container) return;
-
-    let html = '';
-    AppState.days.forEach(day => {
-      html += `
-        <div class="entity-management-row">
-          <div class="entity-info">
-            <span class="entity-title">${day.label} (${day.date})</span>
-            <span class="entity-subtitle">${day.shifts ? day.shifts.length : 0} turnos</span>
-          </div>
-          <div style="display: flex; gap: 6px;">
-            <button class="btn btn-sm btn-secondary" onclick="Modals.promptAddShift(${day.id})">+ Turno</button>
-            <button class="btn btn-sm btn-ghost" onclick="Modals.promptEditDay(${day.id}, '${day.label}', '${day.date}')">Editar</button>
-            ${AppState.days.length > 1 ? `<button class="btn btn-sm btn-danger" onclick="Modals.deleteDay(${day.id})">Excluir</button>` : ''}
-          </div>
-        </div>
-      `;
-
-      if (day.shifts && day.shifts.length > 0) {
-        day.shifts.forEach(shift => {
-          html += `
-            <div class="entity-management-row" style="margin-left: 20px; border-left: 3px solid var(--accent);">
-              <div class="entity-info">
-                <span class="entity-title">Turno: ${shift.name}</span>
-                <span class="entity-subtitle">${shift.start_time || '--:--'} às ${shift.end_time || '--:--'}</span>
-              </div>
-              <div style="display: flex; gap: 6px;">
-                <button class="btn btn-sm btn-ghost" onclick="Modals.promptEditShift(${shift.id}, '${shift.name}', '${shift.start_time || ''}', '${shift.end_time || ''}')">Editar</button>
-                ${day.shifts.length > 1 ? `<button class="btn btn-sm btn-danger" onclick="Modals.deleteShift(${shift.id})">Excluir</button>` : ''}
-              </div>
-            </div>
-          `;
-        });
-      }
-    });
-
-    container.innerHTML = html;
   },
 
   renderSettingsGeneral() {
@@ -368,92 +326,175 @@ const Modals = {
     form.eventCategory.value = AppState.event.category || '';
   },
 
-  async promptAddDay() {
-    const label = prompt('Rótulo do novo dia (ex: Dia 2 - Domingo):');
-    if (!label) return;
-    const date = prompt('Data (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
-    if (!date) return;
+  // ==========================================
+  // DAY & SHIFT DRAWER
+  // ==========================================
+  openShiftPicker() {
+    this.renderShiftPicker();
+    this.open('modal-shift-picker');
+  },
 
-    try {
-      await Api.createDay({ eventId: AppState.event.id, label, date });
-      window.showToast('Dia adicionado!', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
+  // Builds the drawer HTML (string) and, when the container exists, injects it.
+  renderShiftPicker() {
+    const esc = Logic.escapeHtml;
+    const editing = AppState.mode === 'editor';
+    const days = AppState.days || [];
+    const btn = (action, id, name, label, cls = '') =>
+      `<button type="button" class="icon-btn ${cls}" data-provisional data-action="${action}" data-id="${id}" title="${label}" aria-label="${label}">${window.icon(name, 20)}</button>`;
+
+    let html = '';
+    days.forEach(day => {
+      const shifts = day.shifts || [];
+      html += `<div class="row" style="cursor: default; font-weight: 700;">
+        <span style="flex: 1;">${esc(day.label)} <span style="font-weight: 400; color: var(--text-2);">${esc(day.date)}</span></span>`;
+      if (editing) {
+        html += btn('add-shift', day.id, 'plus', 'Novo turno', 'edit-only');
+        html += btn('edit-day', day.id, 'pencil', 'Renomear dia', 'edit-only');
+        if (days.length > 1) html += btn('delete-day', day.id, 'trash', 'Excluir dia', 'edit-only');
+      }
+      html += '</div>';
+      shifts.forEach(shift => {
+        const selected = shift.id === AppState.selectedShiftId;
+        html += `<div class="row${selected ? ' selected' : ''}" data-action="select-shift" data-day-id="${day.id}" data-id="${shift.id}" role="button" tabindex="0" style="padding-left: 28px;">
+          <span style="flex: 1;${selected ? ' color: var(--accent); font-weight: 700;' : ''}">${esc(shift.name)}</span>`;
+        if (selected) html += `<span style="color: var(--accent);">${window.icon('check', 20)}</span>`;
+        if (editing) {
+          html += btn('edit-shift', shift.id, 'pencil', 'Renomear turno', 'edit-only');
+          if (shifts.length > 1) html += btn('delete-shift', shift.id, 'trash', 'Excluir turno', 'edit-only');
+        }
+        html += '</div>';
+      });
+    });
+    if (editing) {
+      html += `<div class="row" data-provisional data-action="add-day" role="button" tabindex="0" style="color: var(--accent);">${window.icon('plus', 20)}<span>Novo dia</span></div>`;
+    }
+    if (!days.length) html = '<div class="row" style="cursor: default;">Nenhum dia cadastrado.</div>';
+
+    const container = document.getElementById('shift-picker-container');
+    if (container) container.innerHTML = html;
+    return html;
+  },
+
+  _findShift(shiftId) {
+    for (const d of AppState.days) {
+      const s = (d.shifts || []).find(x => x.id === shiftId);
+      if (s) return { day: d, shift: s };
+    }
+    return null;
+  },
+
+  async handleShiftPickerAction(el) {
+    const action = el.dataset.action;
+    const id = Number(el.dataset.id);
+    const dayId = Number(el.dataset.dayId);
+    if (action === 'select-shift') {
+      AppState.selectShift(dayId, id);
+      this.close('modal-shift-picker');
+      UIDirector.renderShiftLabel();
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+      return;
+    }
+    const day = AppState.days.find(d => d.id === id);
+    const found = this._findShift(id);
+    const refresh = () => window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
+    const back = () => this.openShiftPicker();
+
+    if (action === 'add-day') {
+      this.openQuickForm({
+        title: 'Novo dia',
+        fields: [
+          { name: 'label', label: 'Rótulo', type: 'text', required: true },
+          { name: 'date', label: 'Data', type: 'date', value: new Date().toISOString().slice(0, 10), required: true }
+        ],
+        onSubmit: async v => { await Api.createDay({ eventId: AppState.event.id, label: v.label, date: v.date }); refresh(); back(); },
+        onCancel: back
+      });
+    } else if (action === 'edit-day' && day) {
+      this.openQuickForm({
+        title: 'Editar dia',
+        fields: [
+          { name: 'label', label: 'Rótulo', type: 'text', value: day.label, required: true },
+          { name: 'date', label: 'Data', type: 'date', value: day.date, required: true }
+        ],
+        onSubmit: async v => { await Api.updateDay(day.id, { label: v.label, date: v.date }); refresh(); back(); },
+        onCancel: back
+      });
+    } else if (action === 'delete-day' && day) {
+      try { await Api.deleteDay(day.id); refresh(); } catch (err) { window.showToast(err.message, 'error'); }
+    } else if (action === 'add-shift' && day) {
+      this.openQuickForm({
+        title: 'Novo turno',
+        fields: [{ name: 'name', label: 'Nome do turno', type: 'text', required: true }],
+        onSubmit: async v => { await Api.createShift({ dayId: day.id, name: v.name }); refresh(); back(); },
+        onCancel: back
+      });
+    } else if (action === 'edit-shift' && found) {
+      const s = found.shift;
+      this.openQuickForm({
+        title: 'Renomear turno',
+        fields: [{ name: 'name', label: 'Nome do turno', type: 'text', value: s.name, required: true }],
+        onSubmit: async v => {
+          await Api.updateShift(s.id, { name: v.name, startTime: s.start_time || '', endTime: s.end_time || '' });
+          refresh(); back();
+        },
+        onCancel: back
+      });
+    } else if (action === 'delete-shift' && found) {
+      try { await Api.deleteShift(found.shift.id); refresh(); } catch (err) { window.showToast(err.message, 'error'); }
     }
   },
 
-  async promptEditDay(id, currentLabel, currentDate) {
-    const label = prompt('Rótulo do dia:', currentLabel);
-    if (!label) return;
-    const date = prompt('Data (YYYY-MM-DD):', currentDate);
-    if (!date) return;
-
-    try {
-      await Api.updateDay(id, { label, date });
-      window.showToast('Dia atualizado!', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
+  initShiftPicker() {
+    const container = document.getElementById('shift-picker-container');
+    if (!container || container.dataset.bound) return;
+    container.dataset.bound = '1';
+    container.addEventListener('click', e => {
+      const el = e.target.closest('[data-action]');
+      if (el && container.contains(el)) this.handleShiftPickerAction(el);
+    });
+    container.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const el = e.target.closest('[data-action]');
+      if (el && el === e.target) { e.preventDefault(); this.handleShiftPickerAction(el); }
+    });
   },
 
-  async deleteDay(id) {
-    if (!confirm('Deseja realmente excluir este dia e todos os seus turnos e itens?')) return;
-    try {
-      await Api.deleteDay(id);
-      window.showToast('Dia excluído com sucesso.', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
-  },
+  // Generic quick form. fields: {name, label, type:'text'|'date'|'time', value?, required?}[]
+  openQuickForm({ title, fields, onSubmit, onCancel }) {
+    const esc = Logic.escapeHtml;
+    const form = document.getElementById('quick-form');
+    document.getElementById('quick-form-title').textContent = title;
+    document.getElementById('quick-form-fields').innerHTML = fields.map(f => `
+      <div class="form-group">
+        <label class="form-label" for="qf-${esc(f.name)}">${esc(f.label)}</label>
+        <input class="form-input" id="qf-${esc(f.name)}" name="${esc(f.name)}" type="${esc(f.type || 'text')}"
+          value="${esc(f.value == null ? '' : f.value)}"${f.required ? ' required' : ''} autocomplete="off">
+      </div>`).join('');
 
-  async promptAddShift(dayId) {
-    const name = prompt('Nome do turno (ex: Manhã, Tarde, Noite):');
-    if (!name) return;
-    const startTime = prompt('Horário inicial (opcional, ex: 19:00):', '');
-    const endTime = prompt('Horário final (opcional, ex: 21:30):', '');
-
-    try {
-      await Api.createShift({ dayId, name, startTime, endTime });
-      window.showToast('Turno adicionado!', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
-  },
-
-  async promptEditShift(id, currentName, curStart, curEnd) {
-    const name = prompt('Nome do turno:', currentName);
-    if (!name) return;
-    const startTime = prompt('Horário inicial:', curStart);
-    const endTime = prompt('Horário final:', curEnd);
-
-    try {
-      await Api.updateShift(id, { name, startTime, endTime });
-      window.showToast('Turno atualizado!', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
-  },
-
-  async deleteShift(id) {
-    if (!confirm('Deseja realmente excluir este turno e todos os seus itens?')) return;
-    try {
-      await Api.deleteShift(id);
-      window.showToast('Turno excluído com sucesso.', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
+    const cancel = () => { this.close('modal-quick-form'); if (onCancel) onCancel(); };
+    document.getElementById('quick-form-cancel').onclick = cancel;
+    let busy = false;
+    form.onsubmit = async e => {
+      e.preventDefault();
+      if (busy) return;
+      const values = {};
+      for (const f of fields) {
+        const v = form.elements[f.name].value.trim();
+        if (f.required && !v) { form.elements[f.name].focus(); return; }
+        values[f.name] = v;
+      }
+      busy = true;
+      try {
+        this.close('modal-quick-form');
+        await onSubmit(values);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+        if (onCancel) onCancel();
+      } finally {
+        busy = false;
+      }
+    };
+    this.open('modal-quick-form');
   },
 
   async submitSettingsGeneral(form) {

@@ -3,10 +3,14 @@
  * Reactive reactive-store with subscribers
  */
 
+function safeStorageGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
 const AppState = {
   // Authentication & Mode
-  token: localStorage.getItem('eventos_token') || null,
-  role: localStorage.getItem('eventos_role') || null, // 'director' | 'admin'
+  token: safeStorageGet('eventos_token') || null,
+  role: safeStorageGet('eventos_role') || null, // 'director' | 'admin'
   mode: 'director', // 'director' | 'editor' (director is ALWAYS the default per PRD)
 
   // Hierarchy Data
@@ -79,29 +83,35 @@ const AppState = {
     this.event = event;
     this.days = days || [];
 
-    // Auto-select day if none selected or if invalid
-    if (!this.selectedDayId || !this.days.find(d => d.id === this.selectedDayId)) {
-      if (this.days.length > 0) {
-        this.selectedDayId = this.days[0].id;
+    const shiftExists = this.selectedShiftId != null && this.days.some(
+      d => d.id === this.selectedDayId && (d.shifts || []).some(s => s.id === this.selectedShiftId)
+    );
+    if (!shiftExists) {
+      let saved = null;
+      try {
+        const raw = localStorage.getItem('eventos_shift_id');
+        if (raw != null) saved = Number(raw);
+      } catch (e) { /* storage unavailable */ }
+      const pick = Logic.pickInitialShift(this.days, Number.isFinite(saved) ? saved : null);
+      if (pick) {
+        this.selectedDayId = pick.dayId;
+        this.selectedShiftId = pick.shiftId;
       } else {
-        this.selectedDayId = null;
+        this.selectedDayId = this.days.length > 0 ? this.days[0].id : null;
+        this.selectedShiftId = null;
       }
     }
-
-    // Auto-select shift
-    this.autoSelectShift();
     this.notify('HIERARCHY_UPDATED', { event, days });
   },
 
-  autoSelectShift() {
-    const currentDay = this.days.find(d => d.id === this.selectedDayId);
-    if (currentDay && currentDay.shifts && currentDay.shifts.length > 0) {
-      if (!this.selectedShiftId || !currentDay.shifts.find(s => s.id === this.selectedShiftId)) {
-        this.selectedShiftId = currentDay.shifts[0].id;
-      }
-    } else {
-      this.selectedShiftId = null;
-    }
+  selectShift(dayId, shiftId) {
+    this.selectedDayId = Number(dayId);
+    this.selectedShiftId = Number(shiftId);
+    this.currentItemId = null;
+    try {
+      localStorage.setItem('eventos_shift_id', String(this.selectedShiftId));
+    } catch (e) { /* storage unavailable */ }
+    this.notify('SHIFT_SELECTED', { dayId: this.selectedDayId, shiftId: this.selectedShiftId });
   },
 
   setShiftData(data) {

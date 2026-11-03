@@ -133,10 +133,11 @@ function setupEventListeners() {
     });
   }
 
-  // Day/shift chip: the day & shift drawer is wired in a later task
+  // Day/shift chip -> day & shift drawer
+  Modals.initShiftPicker();
   const shiftBtn = document.getElementById('btn-shift-picker');
   if (shiftBtn) {
-    shiftBtn.addEventListener('click', () => {});
+    shiftBtn.addEventListener('click', () => Modals.openShiftPicker());
   }
 
   // Connection icon -> LAN / connection sheet
@@ -196,7 +197,11 @@ function setupEventListeners() {
 
   // State Subscriptions
   AppState.subscribe((eventType, payload) => {
-    if (eventType === 'MODE_CHANGED') {
+    if (eventType === 'HIERARCHY_UPDATED') {
+      UIDirector.renderShiftLabel();
+      const picker = document.getElementById('modal-shift-picker');
+      if (picker && picker.classList.contains('open')) Modals.renderShiftPicker();
+    } else if (eventType === 'MODE_CHANGED') {
       const isEditor = payload.mode === 'editor';
       const modeBtn = document.getElementById('btn-mode-toggle');
       if (modeBtn) {
