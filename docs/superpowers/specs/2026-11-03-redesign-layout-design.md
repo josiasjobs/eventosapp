@@ -104,7 +104,7 @@ Fica na coluna esquerda no tablet e na gaveta no celular.
 
 ### Barra de baixo
 
-- Celular: `◀` `☰` `▶`. O ▶ é laranja e tem o dobro da largura; o ☰ abre a gaveta da programação.
+- Celular: `◀` `☰` `▶`. Os botões têm a mesma largura; o ▶ é laranja; o ☰ abre a gaveta da programação.
 - Tablet: `◀` `▶`, sem o ☰.
 - Botões desabilitados (na primeira ou na última parte) ficam com opacidade reduzida.
 - As setas do teclado continuam funcionando.

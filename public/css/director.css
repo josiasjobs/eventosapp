@@ -248,7 +248,7 @@ button.dot.dot-lg::before { inset: -12px; }
   color: var(--text);
 }
 .op-nav .nav-btn:hover { background: var(--border); color: var(--text); }
-.op-nav .nav-btn.nav-next { flex: 2; background: var(--accent); color: #fff; }
+.op-nav .nav-btn.nav-next { background: var(--accent); color: #fff; }
 .op-nav .nav-btn.nav-next:hover { background: var(--accent); opacity: 0.88; }
 .op-nav .nav-btn:disabled, .op-nav .nav-btn:disabled:hover { opacity: 0.4; }
 
