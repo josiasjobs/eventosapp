@@ -23,18 +23,18 @@
    1. HERO SPOTLIGHT CARD (ITEM ATUAL)
    ========================================= */
 .spotlight-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-medium);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   overflow: hidden;
   position: relative;
-  transition: all var(--transition-normal);
+  transition: all var(--t);
 }
 
 .spotlight-card.is-live {
   border-color: rgba(16, 185, 129, 0.45);
-  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.15), var(--shadow-md);
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.15), var(--shadow);
 }
 
 /* Glowing top accent strip */
@@ -45,7 +45,7 @@
   left: 0;
   width: 100%;
   height: 4px;
-  background: linear-gradient(90deg, var(--color-live) 0%, var(--accent-primary) 100%);
+  background: linear-gradient(90deg, var(--done) 0%, var(--accent) 100%);
 }
 
 .spotlight-header {
@@ -62,14 +62,14 @@
 }
 
 .spotlight-time-badge {
-  font-family: var(--font-family-mono);
+  font-family: var(--font);
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--color-warning);
-  background: var(--color-warning-bg);
+  color: var(--accent);
+  background: rgba(242,106,27,.12);
   border: 1px solid rgba(245, 158, 11, 0.25);
   padding: 4px 12px;
-  border-radius: var(--radius-full);
+  border-radius: 9999px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -80,12 +80,12 @@
 }
 
 .spotlight-title {
-  font-family: var(--font-family-display);
+  font-family: var(--font);
   font-size: 2rem;
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: -0.02em;
-  color: var(--text-primary);
+  color: var(--text);
   margin-bottom: 12px;
 }
 
@@ -96,7 +96,7 @@
   gap: 14px;
   margin-bottom: 16px;
   font-size: 0.95rem;
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .spotlight-meta-item {
@@ -116,8 +116,8 @@
   color: #94a3b8;
   background: rgba(0, 0, 0, 0.25);
   padding: 14px 18px;
-  border-radius: var(--radius-md);
-  border-left: 3px solid var(--accent-primary);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--accent);
   margin-bottom: 24px;
 }
 
@@ -125,7 +125,7 @@
    2. MEDIAS SECTION INSIDE SPOTLIGHT
    ========================================= */
 .medias-section {
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border);
   padding: var(--spacing-lg);
   background: rgba(0, 0, 0, 0.15);
 }
@@ -138,19 +138,19 @@
 }
 
 .medias-section-title {
-  font-family: var(--font-family-display);
+  font-family: var(--font);
   font-size: 1.05rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .medias-progress-stats {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .medias-list {
@@ -163,18 +163,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 12px 16px;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--t);
   user-select: none;
 }
 
 .media-item-row:hover {
-  background: var(--bg-surface-hover);
-  border-color: var(--border-strong);
+  background: var(--surface-2);
+  border-color: var(--border);
   transform: translateX(2px);
 }
 
@@ -185,18 +185,18 @@
 
 .media-item-row.is-dragging {
   opacity: 0.45;
-  border: 1px dashed var(--color-primary);
+  border: 1px dashed var(--accent);
   background: rgba(245, 158, 11, 0.08);
   transform: scale(0.99);
 }
 
 .media-item-row.drag-over-above {
-  border-top: 2px solid var(--color-primary) !important;
+  border-top: 2px solid var(--accent) !important;
   box-shadow: 0 -4px 10px rgba(245, 158, 11, 0.3);
 }
 
 .media-item-row.drag-over-below {
-  border-bottom: 2px solid var(--color-primary) !important;
+  border-bottom: 2px solid var(--accent) !important;
   box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
 }
 
@@ -211,20 +211,20 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 2px solid var(--border-strong);
+  border: 2px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
+  transition: all var(--t);
   flex-shrink: 0;
   color: transparent;
 }
 
 .media-item-row.completed .media-check-circle {
-  background: var(--color-live);
-  border-color: var(--color-live);
+  background: var(--done);
+  border-color: var(--done);
   color: #ffffff;
-  box-shadow: 0 0 10px var(--color-live-glow);
+  box-shadow: 0 0 10px transparent;
 }
 
 .media-text-info {
@@ -236,19 +236,19 @@
 .media-title {
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-primary);
-  transition: all var(--transition-fast);
+  color: var(--text);
+  transition: all var(--t);
 }
 
 .media-item-row.completed .media-title {
-  color: var(--text-muted);
+  color: var(--text-2);
   text-decoration: line-through;
 }
 
 .media-reference {
   font-size: 0.8rem;
-  color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  color: var(--text-2);
+  font-family: var(--font);
 }
 
 .media-right-group {
@@ -263,7 +263,7 @@
 .director-nav-toolbar {
   padding: var(--spacing-md) var(--spacing-lg);
   background: rgba(0, 0, 0, 0.35);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -279,23 +279,23 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius);
 }
 
 .nav-key-badge {
-  font-family: var(--font-family-mono);
+  font-family: var(--font);
   font-size: 0.75rem;
   background: rgba(0, 0, 0, 0.3);
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
+  border-radius: var(--radius);
+  color: var(--text-2);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .nav-position-info {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-2);
   text-align: center;
   min-width: 90px;
 }
@@ -304,18 +304,18 @@
    4. TIMELINE & SHIFT PROGRAM LIST (RIGHT)
    ========================================= */
 .timeline-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
 }
 
 .timeline-header {
   padding: var(--spacing-lg);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -328,10 +328,10 @@
 }
 
 .timeline-title {
-  font-family: var(--font-family-display);
+  font-family: var(--font);
   font-size: 1.15rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -351,17 +351,17 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  background: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--t);
   position: relative;
 }
 
 .timeline-item-card:hover {
-  background: var(--bg-surface-hover);
-  border-color: var(--border-medium);
+  background: var(--surface-2);
+  border-color: var(--border);
 }
 
 .timeline-item-card.is-current {
@@ -382,16 +382,16 @@
 }
 
 .item-order-number {
-  font-family: var(--font-family-mono);
+  font-family: var(--font);
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--text-2);
   width: 22px;
   text-align: center;
 }
 
 .timeline-item-card.is-current .item-order-number {
-  color: var(--color-live);
+  color: var(--done);
 }
 
 .item-details {
@@ -407,21 +407,21 @@
 }
 
 .item-scheduled-time {
-  font-family: var(--font-family-mono);
+  font-family: var(--font);
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--color-warning);
+  color: var(--accent);
 }
 
 .item-name {
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .item-speaker-preview {
   font-size: 0.8rem;
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .item-card-right {
@@ -433,10 +433,10 @@
 .media-pill-counter {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-2);
   background: rgba(255, 255, 255, 0.05);
   padding: 3px 8px;
-  border-radius: var(--radius-full);
+  border-radius: 9999px;
 }
 
 /* Item Complete Toggle Button & Status */
@@ -446,7 +446,7 @@
 }
 
 .timeline-item-card.is-completed:not(.is-current) .item-name {
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 
 .item-name.item-completed-text {
@@ -459,14 +459,14 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-medium);
-  background: var(--bg-surface-elevated);
-  color: var(--text-secondary);
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-2);
   font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--t);
   user-select: none;
   white-space: nowrap;
 }
@@ -474,7 +474,7 @@
 .btn-item-complete:hover {
   background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.4);
-  color: var(--color-live);
+  color: var(--done);
   transform: translateY(-1px);
 }
 
@@ -482,26 +482,26 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 1.5px solid var(--border-strong);
+  border: 1.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
   color: transparent;
-  transition: all var(--transition-fast);
+  transition: all var(--t);
   flex-shrink: 0;
 }
 
 .btn-item-complete.completed {
   background: rgba(16, 185, 129, 0.15);
   border-color: rgba(16, 185, 129, 0.4);
-  color: var(--color-live);
+  color: var(--done);
 }
 
 .btn-item-complete.completed .item-check-icon {
-  background: var(--color-live);
-  border-color: var(--color-live);
+  background: var(--done);
+  border-color: var(--done);
   color: #ffffff;
-  box-shadow: 0 0 6px var(--color-live-glow);
+  box-shadow: 0 0 6px transparent;
 }
 
 /* Empty State */
@@ -513,21 +513,21 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 
 .empty-state-icon {
   width: 48px;
   height: 48px;
-  color: var(--text-muted);
+  color: var(--text-2);
   opacity: 0.4;
 }
 
 /* Center schedule picker trigger in director navigation toolbar (hidden on large screens where timeline is visible) */
 .btn-schedule-picker-trigger {
-  background: var(--bg-surface-elevated);
-  border: 1px solid var(--border-medium);
-  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 6px 14px;
   display: none; /* Oculto em telas grandes */
   flex-direction: column;
@@ -535,16 +535,16 @@
   justify-content: center;
   gap: 2px;
   cursor: pointer;
-  color: var(--text-primary);
-  transition: all var(--transition-fast);
+  color: var(--text);
+  transition: all var(--t);
   min-width: 120px;
   height: 48px;
   user-select: none;
 }
 
 .btn-schedule-picker-trigger:hover {
-  background: var(--bg-surface-hover);
-  border-color: var(--accent-primary-light);
+  background: var(--surface-2);
+  border-color: var(--accent);
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
   transform: translateY(-1px);
 }
@@ -557,11 +557,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .schedule-btn-text {
-  font-family: var(--font-family-body);
+  font-family: var(--font);
   font-size: 0.85rem;
   font-weight: 700;
   white-space: nowrap;
@@ -570,7 +570,7 @@
 .schedule-btn-sub {
   font-size: 0.65rem;
   font-weight: 700;
-  color: var(--accent-primary-light);
+  color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
