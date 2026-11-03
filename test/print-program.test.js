@@ -76,3 +76,19 @@ test('documento é uma página completa para impressão A4', () => {
   assert.match(html, /^<!doctype html>/i);
   assert.match(html, /@page\s*{\s*size:\s*A4/);
 });
+
+test('usa os ícones do app quando fornecidos (marca e tipo da mídia)', () => {
+  const icon = (name) => `<i data-icon="${name}"></i>`;
+  const typeIcons = { bible: 'book', video: 'video', image: 'image', interview: 'mic', theater: 'drama', other: 'file' };
+  const html = buildProgramHtml(data, { icon, typeIcons });
+  assert.match(html, /data-icon="play"/);
+  assert.match(html, /data-icon="book"/);
+  assert.match(html, /data-icon="image"/);
+  assert.match(html, /data-icon="user"/);
+});
+
+test('cores do app são preservadas na impressão', () => {
+  const html = buildProgramHtml(data);
+  assert.match(html, /#f26a1b/i);
+  assert.match(html, /print-color-adjust:\s*exact/);
+});
