@@ -4,15 +4,15 @@
  */
 
 // Toast notification helper
-window.showToast = function(message, type = 'info', duration = 3500) {
+window.showToast = function(message, type = 'info', duration = 2000) {
   const container = document.getElementById('toast-container');
   if (!container) return;
 
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.innerHTML = `
-    <span>${message}</span>
-  `;
+  const text = document.createElement('span');
+  text.textContent = message;
+  toast.appendChild(text);
 
   container.appendChild(toast);
 
@@ -25,6 +25,7 @@ window.showToast = function(message, type = 'info', duration = 3500) {
 
 // Initialize App
 async function initApp() {
+  hydrateStaticIcons();
   setupGlobalShortcuts();
   setupEventListeners();
 
@@ -71,20 +72,13 @@ async function initApp() {
   }
 }
 
-// Mobile Header Menu Toggle
-function toggleMobileMenu(event) {
-  if (event) event.stopPropagation();
-  const menu = document.getElementById('mobile-header-menu');
-  if (menu) menu.classList.toggle('open');
+// Fill static [data-icon] placeholders in index.html with SVG icons
+function hydrateStaticIcons(root = document) {
+  root.querySelectorAll('[data-icon]').forEach(el => {
+    const size = el.dataset.iconSize ? Number(el.dataset.iconSize) : undefined;
+    el.innerHTML = icon(el.dataset.icon, size);
+  });
 }
-
-function closeMobileMenu() {
-  const menu = document.getElementById('mobile-header-menu');
-  if (menu) menu.classList.remove('open');
-}
-
-window.toggleMobileMenu = toggleMobileMenu;
-window.closeMobileMenu = closeMobileMenu;
 
 // Fetch LAN info (IP addresses, QR Code)
 async function loadLanInfo() {
@@ -102,8 +96,8 @@ async function loadEventHierarchy() {
     const data = await Api.getActiveEvent();
     AppState.setEventHierarchy(data.event, data.days);
 
-    // Update Header Brand & Selectors
-    updateHeaderSelectors();
+    // Update "Dia · Turno" chip
+    UIDirector.renderShiftLabel();
 
     // Load full shift data
     await loadShiftData();
@@ -129,59 +123,8 @@ async function loadShiftData() {
   }
 }
 
-// Update Header Day & Shift Selectors
-function updateHeaderSelectors() {
-  const eventNameEl = document.getElementById('header-event-name');
-  if (eventNameEl && AppState.event) {
-    eventNameEl.textContent = AppState.event.name;
-  }
-
-  const daySelect = document.getElementById('select-day');
-  const shiftSelect = document.getElementById('select-shift');
-
-  if (daySelect) {
-    daySelect.innerHTML = AppState.days.map(d => `
-      <option value="${d.id}" ${d.id === AppState.selectedDayId ? 'selected' : ''}>${d.label}</option>
-    `).join('');
-  }
-
-  updateShiftSelectOptions();
-}
-
-function updateShiftSelectOptions() {
-  const shiftSelect = document.getElementById('select-shift');
-  if (!shiftSelect) return;
-
-  const currentDay = AppState.days.find(d => d.id === AppState.selectedDayId);
-  const shifts = (currentDay && currentDay.shifts) || [];
-
-  shiftSelect.innerHTML = shifts.map(s => `
-    <option value="${s.id}" ${s.id === AppState.selectedShiftId ? 'selected' : ''}>${s.name}</option>
-  `).join('');
-}
-
 // Setup Event Listeners
 function setupEventListeners() {
-  // Day change
-  const daySelect = document.getElementById('select-day');
-  if (daySelect) {
-    daySelect.addEventListener('change', (e) => {
-      AppState.selectedDayId = Number(e.target.value);
-      AppState.autoSelectShift();
-      updateShiftSelectOptions();
-      loadShiftData();
-    });
-  }
-
-  // Shift change
-  const shiftSelect = document.getElementById('select-shift');
-  if (shiftSelect) {
-    shiftSelect.addEventListener('change', (e) => {
-      AppState.selectedShiftId = Number(e.target.value);
-      loadShiftData();
-    });
-  }
-
   // Mode Toggle Button (Director <-> Editor)
   const modeBtn = document.getElementById('btn-mode-toggle');
   if (modeBtn) {
@@ -190,12 +133,31 @@ function setupEventListeners() {
     });
   }
 
-  // Banner "Voltar ao Modo Diretor" button
-  const bannerBackBtn = document.getElementById('banner-btn-director');
-  if (bannerBackBtn) {
-    bannerBackBtn.addEventListener('click', () => {
-      AppState.setMode('director');
-    });
+  // Day/shift chip -> day & shift drawer
+  Modals.initShiftPicker();
+  Modals.initMediaTypePicker();
+  Modals.initImportModeChoice();
+  const shiftBtn = document.getElementById('btn-shift-picker');
+  if (shiftBtn) {
+    shiftBtn.addEventListener('click', () => Modals.openShiftPicker());
+  }
+
+  // Connection icon -> LAN / connection sheet
+  const connBtn = document.getElementById('btn-connection');
+  if (connBtn) {
+    connBtn.addEventListener('click', () => Modals.openLanModal());
+  }
+
+  // Settings (edit mode only)
+  const settingsBtn = document.getElementById('btn-open-settings');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => Modals.openSettingsModal());
+  }
+
+  // Logout (connection sheet footer)
+  const logoutBtn = document.getElementById('btn-logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => Api.logout());
   }
 
   // Custom App Events
@@ -204,8 +166,9 @@ function setupEventListeners() {
   });
 
   window.addEventListener('import-playlist', async (e) => {
-    const { itemId, file } = e.detail;
+    const { itemId, file, mode } = e.detail;
     const formData = new FormData();
+    formData.append('mode', mode || 'append');
     formData.append('playlist', file);
     try {
       const resp = await Api.request(`/api/items/${itemId}/import-playlist`, {
@@ -227,6 +190,7 @@ function setupEventListeners() {
   });
 
   window.addEventListener('init-app-data', () => {
+    if (!AppState.lanInfo) loadLanInfo();
     loadEventHierarchy();
     SocketClient.connect();
   });
@@ -235,54 +199,33 @@ function setupEventListeners() {
     Modals.openPinModal('login');
   });
 
-  // Close mobile menu on outside click
-  document.addEventListener('click', (e) => {
-    const menu = document.getElementById('mobile-header-menu');
-    const toggleBtn = document.getElementById('btn-mobile-menu-toggle');
-    if (menu && menu.classList.contains('open')) {
-      if (!menu.contains(e.target) && (!toggleBtn || !toggleBtn.contains(e.target))) {
-        closeMobileMenu();
-      }
-    }
-  });
-
   // State Subscriptions
   AppState.subscribe((eventType, payload) => {
-    if (eventType === 'MODE_CHANGED') {
+    if (eventType === 'HIERARCHY_UPDATED') {
+      UIDirector.renderShiftLabel();
+      const picker = document.getElementById('modal-shift-picker');
+      if (picker && picker.classList.contains('open')) Modals.renderShiftPicker();
+    } else if (eventType === 'MODE_CHANGED') {
       const isEditor = payload.mode === 'editor';
       const modeBtn = document.getElementById('btn-mode-toggle');
-      const mobileModeText = document.getElementById('mobile-mode-btn-text');
-      const banner = document.getElementById('mode-banner');
-
       if (modeBtn) {
-        modeBtn.classList.toggle('editor-active', isEditor);
-        modeBtn.querySelector('.mode-btn-text').textContent = isEditor ? 'Modo Edição' : 'Modo Diretor';
+        modeBtn.classList.toggle('is-on', isEditor);
+        modeBtn.setAttribute('aria-pressed', String(isEditor));
       }
-      if (mobileModeText) {
-        mobileModeText.textContent = isEditor ? 'Voltar para Modo Diretor' : 'Modo Edição';
-      }
-      if (banner) {
-        banner.classList.toggle('visible', isEditor);
-      }
+      if (!isEditor) UIDirector.closeEditOverlays();
       UIDirector.render();
     } else if (eventType === 'WS_STATUS_CHANGED') {
-      const syncBadge = document.getElementById('sync-status-badge');
-      const syncText = document.getElementById('sync-status-text');
-      const mobileSyncText = document.getElementById('mobile-sync-text');
-      const mobileSyncDot = document.getElementById('mobile-sync-dot');
-
-      const label = payload.state === 'online' ? 'Conectado (LAN)' : (payload.state === 'reconnecting' ? 'Reconectando...' : 'Desconectado');
-      if (syncBadge && syncText) {
-        syncBadge.className = `sync-badge ${payload.state}`;
-        syncText.textContent = label;
+      const connBtn = document.getElementById('btn-connection');
+      if (connBtn) {
+        const state = payload.state === 'online' ? 'online' : (payload.state === 'reconnecting' ? 'reconnecting' : 'offline');
+        const label = state === 'online' ? 'Conectado' : (state === 'reconnecting' ? 'Reconectando' : 'Desconectado');
+        connBtn.classList.remove('is-online', 'is-reconnecting', 'is-offline');
+        connBtn.classList.add(`is-${state}`);
+        connBtn.innerHTML = icon(state === 'offline' ? 'wifi-off' : 'wifi');
+        connBtn.title = `Conexão: ${label}`;
+        connBtn.setAttribute('aria-label', `Conexão: ${label}`);
       }
-      if (mobileSyncText) {
-        mobileSyncText.textContent = `LAN: ${label}`;
-      }
-      if (mobileSyncDot) {
-        mobileSyncDot.style.backgroundColor = payload.state === 'online' ? 'var(--color-live)' : (payload.state === 'reconnecting' ? 'var(--color-warning)' : 'var(--color-danger)');
-      }
-    } else if (eventType === 'CURRENT_ITEM_CHANGED' || eventType === 'MEDIA_TOGGLED') {
+    } else if (eventType === 'CURRENT_ITEM_CHANGED' || eventType === 'MEDIA_TOGGLED' || eventType === 'ITEM_TOGGLED') {
       UIDirector.render();
     }
   });
@@ -295,7 +238,6 @@ function toggleMode() {
     if (AppState.role === 'admin') {
       // Already admin session
       AppState.setMode('editor');
-      window.showToast('Modo Edição ativado', 'info');
     } else {
       // Need Admin PIN
       Modals.openPinModal('upgrade');
@@ -303,7 +245,6 @@ function toggleMode() {
   } else {
     // Returning to Director mode
     AppState.setMode('director');
-    window.showToast('Retornou ao Modo Diretor', 'info');
   }
 }
 
@@ -320,15 +261,18 @@ function setupGlobalShortcuts() {
         Modals.handlePinDigit(e.key);
       } else if (e.key === 'Backspace') {
         Modals.handlePinBackspace();
-      } else if (e.key === 'Enter') {
-        Modals.submitPin();
-      } else if (e.key === 'Escape') {
+      } else if (e.key === 'Escape' && Modals.pinContext === 'upgrade') {
         Modals.close('modal-pin-auth');
       }
       return;
     }
 
     if (e.key === 'Escape') {
+      // The quick form's ✕ also reopens the day/shift drawer; Esc does the same
+      if (Modals.activeModal && Modals.activeModal.id === 'modal-quick-form' && Modals._quickFormCancel) {
+        Modals._quickFormCancel();
+        return;
+      }
       Modals.closeAll();
       return;
     }
@@ -349,19 +293,6 @@ function setupGlobalShortcuts() {
     }
   });
 }
-
-// Tab navigation inside modals
-function switchModalTab(tabId, btn) {
-  const modal = btn.closest('.modal-dialog');
-  if (!modal) return;
-  modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  modal.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  const targetPane = document.getElementById(tabId);
-  if (targetPane) targetPane.classList.add('active');
-}
-
-window.switchModalTab = switchModalTab;
 
 // Start on DOM ready
 document.addEventListener('DOMContentLoaded', initApp);

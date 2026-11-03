@@ -3,10 +3,14 @@
  * Reactive reactive-store with subscribers
  */
 
+function safeStorageGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
 const AppState = {
   // Authentication & Mode
-  token: localStorage.getItem('eventos_token') || null,
-  role: localStorage.getItem('eventos_role') || null, // 'director' | 'admin'
+  token: safeStorageGet('eventos_token') || null,
+  role: safeStorageGet('eventos_role') || null, // 'director' | 'admin'
   mode: 'director', // 'director' | 'editor' (director is ALWAYS the default per PRD)
 
   // Hierarchy Data
@@ -79,43 +83,73 @@ const AppState = {
     this.event = event;
     this.days = days || [];
 
-    // Auto-select day if none selected or if invalid
-    if (!this.selectedDayId || !this.days.find(d => d.id === this.selectedDayId)) {
-      if (this.days.length > 0) {
-        this.selectedDayId = this.days[0].id;
+    const shiftExists = this.selectedShiftId != null && this.days.some(
+      d => d.id === this.selectedDayId && (d.shifts || []).some(s => s.id === this.selectedShiftId)
+    );
+    if (!shiftExists) {
+      let saved = null;
+      try {
+        const raw = localStorage.getItem('eventos_shift_id');
+        if (raw != null) saved = Number(raw);
+      } catch (e) { /* storage unavailable */ }
+      const pick = Logic.pickInitialShift(this.days, Number.isFinite(saved) ? saved : null);
+      if (pick) {
+        this.selectedDayId = pick.dayId;
+        this.selectedShiftId = pick.shiftId;
       } else {
-        this.selectedDayId = null;
+        this.selectedDayId = this.days.length > 0 ? this.days[0].id : null;
+        this.selectedShiftId = null;
       }
     }
-
-    // Auto-select shift
-    this.autoSelectShift();
     this.notify('HIERARCHY_UPDATED', { event, days });
   },
 
-  autoSelectShift() {
-    const currentDay = this.days.find(d => d.id === this.selectedDayId);
-    if (currentDay && currentDay.shifts && currentDay.shifts.length > 0) {
-      if (!this.selectedShiftId || !currentDay.shifts.find(s => s.id === this.selectedShiftId)) {
-        this.selectedShiftId = currentDay.shifts[0].id;
-      }
-    } else {
-      this.selectedShiftId = null;
-    }
+  selectShift(dayId, shiftId) {
+    this.selectedDayId = Number(dayId);
+    this.selectedShiftId = Number(shiftId);
+    this.currentItemId = null;
+    try {
+      localStorage.setItem('eventos_shift_id', String(this.selectedShiftId));
+    } catch (e) { /* storage unavailable */ }
+    this.notify('SHIFT_SELECTED', { dayId: this.selectedDayId, shiftId: this.selectedShiftId });
   },
 
   setShiftData(data) {
     this.shiftData = data || { shift: null, items: [] };
-    this.currentItemId = data && data.shift ? data.shift.current_item_id : null;
+    const items = this.shiftData.items || [];
+    const itemStillExists = this.currentItemId && items.some(i => i.id === this.currentItemId);
+
+    // Keep locally selected item if it still exists; otherwise this device's last part for the shift,
+    // then the shift default, then the first part
+    if (!itemStillExists) {
+      const shiftId = data && data.shift ? data.shift.id : this.selectedShiftId;
+      const serverItemId = data && data.shift ? data.shift.current_item_id : null;
+      this.currentItemId = Logic.pickInitialItem(items, this._savedItemIds()[shiftId] ?? null, serverItemId);
+    }
+
     this.notify('SHIFT_DATA_UPDATED', this.shiftData);
   },
 
   setCurrentItemId(itemId) {
     this.currentItemId = itemId ? Number(itemId) : null;
-    if (this.shiftData && this.shiftData.shift) {
-      this.shiftData.shift.current_item_id = this.currentItemId;
+    if (this.selectedShiftId && this.currentItemId) {
+      const saved = this._savedItemIds();
+      saved[this.selectedShiftId] = this.currentItemId;
+      try {
+        localStorage.setItem('eventos_item_ids', JSON.stringify(saved));
+      } catch (e) { /* storage unavailable */ }
     }
     this.notify('CURRENT_ITEM_CHANGED', { itemId: this.currentItemId });
+  },
+
+  // Last selected part per shift on this device: { [shiftId]: itemId }
+  _savedItemIds() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('eventos_item_ids') || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
   },
 
   toggleMediaCompleted(mediaId, completed) {
@@ -129,6 +163,15 @@ const AppState = {
           return;
         }
       }
+    }
+  },
+
+  toggleItemCompleted(itemId, completed) {
+    if (!this.shiftData || !this.shiftData.items) return;
+    const item = this.shiftData.items.find(i => i.id === Number(itemId));
+    if (item) {
+      item.completed = completed ? 1 : 0;
+      this.notify('ITEM_TOGGLED', { itemId: item.id, completed: Boolean(completed) });
     }
   },
 

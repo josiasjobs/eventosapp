@@ -27,12 +27,18 @@ const Api = {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        if (response.status === 401) {
+        // Login and upgrade 401s are handled by the PIN keypad (upgrade re-checks the session via verify)
+        if (response.status === 401 && endpoint !== '/api/auth/login' && endpoint !== '/api/auth/upgrade') {
           // Token expired or invalid
           AppState.setAuth(null, null);
+          // Leave edit mode too, so a director re-login does not keep ⋯/+/⚙ visible
+          if (AppState.mode !== 'director') AppState.setMode('director');
           window.dispatchEvent(new CustomEvent('auth-required'));
         }
-        throw new Error(data.error || `Erro HTTP ${response.status}`);
+        const error = new Error(data.error || `Erro HTTP ${response.status}`);
+        error.status = response.status;
+        if (data.remainingSeconds != null) error.remainingSeconds = data.remainingSeconds;
+        throw error;
       }
 
       return data;
@@ -79,9 +85,13 @@ const Api = {
   async logout() {
     try {
       await this.request('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      // Local logout always completes, even if the server is unreachable
     } finally {
       AppState.setAuth(null, null);
       AppState.setMode('director');
+      Modals.closeAll();
+      window.dispatchEvent(new CustomEvent('auth-required'));
     }
   },
 
@@ -185,6 +195,12 @@ const Api = {
     });
   },
 
+  async toggleItemCompleted(itemId) {
+    return this.request(`/api/items/${itemId}/toggle`, {
+      method: 'POST'
+    });
+  },
+
   // Medias Endpoints
   async createMedia(data) {
     return this.request('/api/medias', {
@@ -216,6 +232,47 @@ const Api = {
   async deleteMedia(id) {
     return this.request(`/api/medias/${id}`, {
       method: 'DELETE'
+    });
+  },
+
+  // Backup & Restore
+  async downloadBackup() {
+    const token = AppState.token;
+    const res = await fetch('/api/backup/export', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Erro ao exportar backup.');
+    }
+
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition');
+    let filename = 'eventosapp-backup.json';
+    if (disposition && disposition.includes('filename=')) {
+      const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+      if (match && match[1]) {
+        filename = match[1].replace(/['"]/g, '');
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  async restoreBackup(backupData, keepPins = true) {
+    return this.request('/api/backup/restore', {
+      method: 'POST',
+      body: JSON.stringify({ backupData, keepPins })
     });
   }
 };
@@ -304,13 +361,15 @@ const SocketClient = {
         break;
 
       case 'CURRENT_ITEM_CHANGED':
-        if (msg.data.shiftId === AppState.selectedShiftId) {
-          AppState.setCurrentItemId(msg.data.currentItemId);
-        }
+        // Navigation is independent per device; do not override user's locally selected part
         break;
 
       case 'MEDIA_TOGGLED':
         AppState.toggleMediaCompleted(msg.data.mediaId, msg.data.completed);
+        break;
+
+      case 'ITEM_TOGGLED':
+        AppState.toggleItemCompleted(msg.data.itemId, msg.data.completed);
         break;
 
       case 'PROGRAM_UPDATED':

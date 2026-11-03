@@ -14,6 +14,7 @@ const fs = require('fs');
 const util = require('util');
 
 const { queries } = require('./db');
+const { playlistMediaTitle } = require('./playlist-title');
 const {
   hashPin,
   comparePin,
@@ -162,10 +163,10 @@ app.post('/api/setup', async (req, res) => {
       return res.status(400).json({ error: 'O nome do evento é obrigatório.' });
     }
     if (!isValidPin(directorPin)) {
-      return res.status(400).json({ error: 'O PIN do Diretor deve ter de 4 a 8 dígitos numéricos.' });
+      return res.status(400).json({ error: 'O PIN do Diretor deve ter 4 dígitos.' });
     }
     if (!isValidPin(adminPin)) {
-      return res.status(400).json({ error: 'O PIN de Edição/Admin deve ter de 4 a 8 dígitos numéricos.' });
+      return res.status(400).json({ error: 'O PIN de Administrador deve ter 4 dígitos.' });
     }
 
     const dirHash = await hashPin(directorPin);
@@ -353,11 +354,11 @@ app.put('/api/events/:id/pins', authenticate('admin'), async (req, res) => {
     let admHash = null;
 
     if (directorPin) {
-      if (!isValidPin(directorPin)) return res.status(400).json({ error: 'O PIN do Diretor deve ter de 4 a 8 dígitos.' });
+      if (!isValidPin(directorPin)) return res.status(400).json({ error: 'O PIN do Diretor deve ter 4 dígitos.' });
       dirHash = await hashPin(directorPin);
     }
     if (adminPin) {
-      if (!isValidPin(adminPin)) return res.status(400).json({ error: 'O PIN de Administrador deve ter de 4 a 8 dígitos.' });
+      if (!isValidPin(adminPin)) return res.status(400).json({ error: 'O PIN de Administrador deve ter 4 dígitos.' });
       admHash = await hashPin(adminPin);
     }
 
@@ -365,6 +366,48 @@ app.put('/api/events/:id/pins', authenticate('admin'), async (req, res) => {
     res.json({ success: true, message: 'PINs atualizados com sucesso.' });
   } catch (e) {
     res.status(500).json({ error: 'Erro ao atualizar PINs: ' + e.message });
+  }
+});
+
+// Backup & Restore Endpoints (Admin only)
+app.get('/api/backup/export', authenticate('admin'), (req, res) => {
+  try {
+    const backup = queries.getFullEventBackup();
+    if (!backup) {
+      return res.status(404).json({ error: 'Nenhum evento ativo encontrado para exportar.' });
+    }
+
+    const safeName = (backup.event.name || 'evento')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '_')
+      .slice(0, 30);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `eventosapp-backup-${safeName}-${dateStr}.json`;
+
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.send(JSON.stringify(backup, null, 2));
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao gerar backup: ' + err.message });
+  }
+});
+
+app.post('/api/backup/restore', authenticate('admin'), (req, res) => {
+  try {
+    const { backupData, keepPins } = req.body;
+    if (!backupData || !backupData.event) {
+      return res.status(400).json({ error: 'Dados do backup inválidos ou não informados.' });
+    }
+
+    const result = queries.restoreEventBackup(backupData, keepPins !== false);
+
+    // Notify all connected clients to reload hierarchy and current shift
+    broadcast('EVENT_UPDATED', { eventId: result.eventId });
+    broadcast('EVENT_SETUP_COMPLETED', { eventId: result.eventId });
+
+    res.json({ success: true, message: 'Evento e dados restaurados com sucesso!' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao restaurar backup: ' + err.message });
   }
 });
 
@@ -508,6 +551,18 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
   res.json({ success: true, itemId });
 });
 
+app.put('/api/items/reorder', authenticate('admin'), (req, res) => {
+  const { shiftId, orderedIds } = req.body;
+  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
+
+  orderedIds.forEach((id, index) => {
+    queries.updateItemOrder(id, index + 1);
+  });
+
+  broadcast('PROGRAM_UPDATED', { shiftId });
+  res.json({ success: true });
+});
+
 app.put('/api/items/:id', authenticate('admin'), (req, res) => {
   const { title, scheduledTime, description, speaker, activityType } = req.body;
   const item = queries.getItem(req.params.id);
@@ -526,18 +581,6 @@ app.put('/api/items/:id', authenticate('admin'), (req, res) => {
   res.json({ success: true });
 });
 
-app.put('/api/items/reorder', authenticate('admin'), (req, res) => {
-  const { shiftId, orderedIds } = req.body;
-  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
-
-  orderedIds.forEach((id, index) => {
-    queries.updateItemOrder(id, index + 1);
-  });
-
-  broadcast('PROGRAM_UPDATED', { shiftId });
-  res.json({ success: true });
-});
-
 app.delete('/api/items/:id', authenticate('admin'), (req, res) => {
   const item = queries.getItem(req.params.id);
   if (!item) return res.status(404).json({ error: 'Item não encontrado' });
@@ -552,6 +595,23 @@ app.delete('/api/items/:id', authenticate('admin'), (req, res) => {
 
   broadcast('PROGRAM_UPDATED', { shiftId: item.shift_id });
   res.json({ success: true });
+});
+
+// Toggle Item Progress (Allowed by Director or Admin)
+app.post('/api/items/:id/toggle', authenticate(), (req, res) => {
+  const item = queries.getItem(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Item não encontrado' });
+
+  const newStatus = item.completed ? 0 : 1;
+  queries.toggleItemCompleted(item.id, newStatus);
+
+  broadcast('ITEM_TOGGLED', {
+    itemId: item.id,
+    shiftId: item.shift_id,
+    completed: Boolean(newStatus)
+  });
+
+  res.json({ success: true, itemId: item.id, completed: Boolean(newStatus) });
 });
 
 // 16. Medias CRUD, Reordering, and Progress Toggle - RF-07, RF-08
@@ -572,6 +632,19 @@ app.post('/api/medias', authenticate('admin'), (req, res) => {
   res.json({ success: true, mediaId });
 });
 
+app.put('/api/medias/reorder', authenticate('admin'), (req, res) => {
+  const { itemId, orderedIds } = req.body;
+  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
+
+  orderedIds.forEach((id, index) => {
+    queries.updateMediaOrder(id, index + 1);
+  });
+
+  const item = queries.getItem(itemId);
+  broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId });
+  res.json({ success: true });
+});
+
 app.put('/api/medias/:id', authenticate('admin'), (req, res) => {
   const { title, type, reference } = req.body;
   const media = queries.getMedia(req.params.id);
@@ -589,19 +662,6 @@ app.put('/api/medias/:id', authenticate('admin'), (req, res) => {
 
   const item = queries.getItem(media.item_id);
   broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId: media.item_id });
-  res.json({ success: true });
-});
-
-app.put('/api/medias/reorder', authenticate('admin'), (req, res) => {
-  const { itemId, orderedIds } = req.body;
-  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
-
-  orderedIds.forEach((id, index) => {
-    queries.updateMediaOrder(id, index + 1);
-  });
-
-  const item = queries.getItem(itemId);
-  broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId });
   res.json({ success: true });
 });
 
@@ -672,12 +732,6 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
     const imageExts = ['jpg','jpeg','png','webp','gif','bmp','tif','tiff','heic','avif'];
     const videoExts = ['mp4','m4v','mov','avi','mkv','webm','mpeg','mpg','3gp','ts'];
     const bibleRegex = /^(?:[1-3]\s+)?(?:[A-Za-z\u00C0-\u00FF]+(?:\s+[A-Za-z\u00C0-\u00FF]+)?)\s+\d+[:.]\d+(?:\s*[-,]\s*\d+)*$/i;
-    const mapEndAction = (val) => {
-      if (val === 0) return 'Continuar';
-      if (val === 1) return 'Repetir';
-      return null;
-    };
-
     let rows = [];
 
     // ── Estrategia 1: TagMap → PlaylistItem ──────────────────────────────────
@@ -755,31 +809,28 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
     console.log('[IMPORT] Total a importar:', rows.length);
     console.log('[IMPORT] Primeira row:', JSON.stringify(rows[0]));
 
-    const existing = queries.getMediasByItem(Number(itemId));
-    let orderIdx = existing.length + 1;
-
-    for (const row of rows) {
+    // mode=replace apaga as mídias atuais da parte; qualquer outro valor adiciona abaixo da última
+    const replace = req.body.mode === 'replace';
+    const medias = rows.map((row, i) => {
       const label = (row.Label || '').trim();
       let type = 'other';
-      let reference = '';
       if (row.mediaPath) {
         const ext = path.extname(row.mediaPath).toLowerCase().replace('.', '');
         if (imageExts.includes(ext)) type = 'image';
         else if (videoExts.includes(ext)) type = 'video';
-        reference = row.mediaPath;
       }
       if (type === 'other' && bibleRegex.test(label)) type = 'bible';
-      let finalName = label || ('Item ' + orderIdx);
-      if ((row.StartTrimOffsetTicks && row.StartTrimOffsetTicks != 0) ||
-          (row.EndTrimOffsetTicks && row.EndTrimOffsetTicks != 0)) {
-        finalName += ' - Editado';
-      }
-      const act = mapEndAction(row.EndAction);
-      if (act) finalName += ' - ' + act;
-      console.log('[IMPORT] #' + orderIdx + ': "' + finalName + '" tipo=' + type);
-      queries.createMedia(Number(itemId), finalName, type, reference, orderIdx);
-      orderIdx++;
-    }
+
+      // Nome + regras do JW Library ("Editado", "Continuar", "Repetir"); observação em branco
+      const baseName = label || (row.mediaPath ? path.basename(row.mediaPath, path.extname(row.mediaPath)) : ('Mídia ' + (i + 1)));
+      const finalName = playlistMediaTitle(baseName, row);
+
+      console.log('[IMPORT] #' + (i + 1) + ': "' + finalName + '" tipo=' + type);
+      return { title: finalName, type, reference: '' };
+    });
+
+    // Uma playlist vazia nunca apaga as mídias existentes
+    if (medias.length > 0) queries.importMedias(Number(itemId), medias, replace);
 
     db.close();
     await fs.promises.rm(tmpDir, { recursive: true, force: true });

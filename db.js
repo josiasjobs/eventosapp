@@ -66,6 +66,7 @@ function initSchema() {
       speaker TEXT DEFAULT '',
       activity_type TEXT DEFAULT '',
       order_num INTEGER NOT NULL DEFAULT 1,
+      completed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
     );
@@ -98,6 +99,13 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_items_shift ON items(shift_id, order_num);
     CREATE INDEX IF NOT EXISTS idx_medias_item ON medias(item_id, order_num);
   `);
+
+  // Safe migration for existing databases
+  try {
+    db.prepare('ALTER TABLE items ADD COLUMN completed INTEGER NOT NULL DEFAULT 0').run();
+  } catch (e) {
+    // Column already exists
+  }
 }
 
 initSchema();
@@ -224,6 +232,14 @@ const queries = {
     return db.prepare('DELETE FROM items WHERE id = ?').run(id);
   },
 
+  toggleItemCompleted(id, completed) {
+    return db.prepare(`
+      UPDATE items
+      SET completed = ?, updated_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(completed ? 1 : 0, id);
+  },
+
   // Medias
   getMediasByItem(itemId) {
     return db.prepare('SELECT * FROM medias WHERE item_id = ? ORDER BY order_num ASC, id ASC').all(itemId);
@@ -265,6 +281,23 @@ const queries = {
     return db.prepare('DELETE FROM medias WHERE id = ?').run(id);
   },
 
+  // Playlist import: replace=true swaps the item's medias for the imported ones,
+  // otherwise they go after the last media. One transaction, so a failure keeps the old list.
+  importMedias(itemId, medias, replace) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      if (replace) db.prepare('DELETE FROM medias WHERE item_id = ?').run(itemId);
+      let orderNum = this.getMediasByItem(itemId).length + 1;
+      for (const m of medias) {
+        this.createMedia(itemId, m.title, m.type, m.reference, orderNum++);
+      }
+      db.exec('COMMIT;');
+    } catch (e) {
+      db.exec('ROLLBACK;');
+      throw e;
+    }
+  },
+
   // Sessions
   createSession(token, role, ipAddress, expiresAt) {
     return db.prepare('INSERT INTO sessions (token, role, ip_address, expires_at) VALUES (?, ?, ?, ?)').run(token, role, ipAddress, expiresAt);
@@ -296,6 +329,178 @@ const queries = {
       shift,
       items
     };
+  },
+
+  // Full Event Backup & Restore
+  getFullEventBackup() {
+    const event = this.getActiveEvent();
+    if (!event) return null;
+
+    const days = this.getDaysByEvent(event.id);
+    const backupData = {
+      app: 'EventosAPP',
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      event: {
+        name: event.name,
+        category: event.category || '',
+        director_pin_hash: event.director_pin_hash,
+        admin_pin_hash: event.admin_pin_hash
+      },
+      days: []
+    };
+
+    for (const day of days) {
+      const dayObj = {
+        date: day.date,
+        label: day.label,
+        order_num: day.order_num,
+        shifts: []
+      };
+
+      const shifts = this.getShiftsByDay(day.id);
+      for (const shift of shifts) {
+        const shiftObj = {
+          name: shift.name,
+          start_time: shift.start_time || '',
+          end_time: shift.end_time || '',
+          order_num: shift.order_num,
+          items: []
+        };
+
+        const items = this.getItemsByShift(shift.id);
+        for (const item of items) {
+          const itemObj = {
+            title: item.title,
+            scheduled_time: item.scheduled_time,
+            description: item.description || '',
+            speaker: item.speaker || '',
+            activity_type: item.activity_type || '',
+            order_num: item.order_num,
+            completed: item.completed ? 1 : 0,
+            medias: []
+          };
+
+          const medias = this.getMediasByItem(item.id);
+          for (const media of medias) {
+            itemObj.medias.push({
+              title: media.title,
+              type: media.type || 'other',
+              reference: media.reference || '',
+              order_num: media.order_num,
+              completed: media.completed ? 1 : 0
+            });
+          }
+
+          shiftObj.items.push(itemObj);
+        }
+
+        dayObj.shifts.push(shiftObj);
+      }
+
+      backupData.days.push(dayObj);
+    }
+
+    return backupData;
+  },
+
+  restoreEventBackup(backupData, keepCurrentPins = false) {
+    if (!backupData || !backupData.event || !backupData.event.name) {
+      throw new Error('Arquivo de backup inválido: dados do evento não encontrados.');
+    }
+
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      const activeEvent = this.getActiveEvent();
+      let directorPinHash = backupData.event.director_pin_hash;
+      let adminPinHash = backupData.event.admin_pin_hash;
+
+      if (keepCurrentPins && activeEvent) {
+        directorPinHash = activeEvent.director_pin_hash;
+        adminPinHash = activeEvent.admin_pin_hash;
+      }
+
+      if (!directorPinHash || !adminPinHash) {
+        if (activeEvent) {
+          directorPinHash = activeEvent.director_pin_hash;
+          adminPinHash = activeEvent.admin_pin_hash;
+        } else {
+          throw new Error('O backup não contém hashes de PIN válidos.');
+        }
+      }
+
+      // Desativa eventos anteriores
+      db.prepare('UPDATE events SET is_active = 0').run();
+
+      // Cria novo evento ativo restaurado
+      const eventRes = db.prepare(`
+        INSERT INTO events (name, category, is_active, director_pin_hash, admin_pin_hash)
+        VALUES (?, ?, 1, ?, ?)
+      `).run(
+        backupData.event.name.trim(),
+        (backupData.event.category || '').trim(),
+        directorPinHash,
+        adminPinHash
+      );
+      const newEventId = eventRes.lastInsertRowid;
+
+      const days = Array.isArray(backupData.days) ? backupData.days : [];
+      for (const day of days) {
+        const dayRes = db.prepare(`
+          INSERT INTO days (event_id, date, label, order_num)
+          VALUES (?, ?, ?, ?)
+        `).run(newEventId, day.date || '', day.label || '', day.order_num || 1);
+        const newDayId = dayRes.lastInsertRowid;
+
+        const shifts = Array.isArray(day.shifts) ? day.shifts : [];
+        for (const shift of shifts) {
+          const shiftRes = db.prepare(`
+            INSERT INTO shifts (day_id, name, start_time, end_time, order_num)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(newDayId, shift.name || '', shift.start_time || '', shift.end_time || '', shift.order_num || 1);
+          const newShiftId = shiftRes.lastInsertRowid;
+
+          const items = Array.isArray(shift.items) ? shift.items : [];
+          for (const item of items) {
+            const itemRes = db.prepare(`
+              INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, completed)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              newShiftId,
+              item.title || '',
+              item.scheduled_time || '',
+              item.description || '',
+              item.speaker || '',
+              item.activity_type || '',
+              item.order_num || 1,
+              item.completed ? 1 : 0
+            );
+            const newItemId = itemRes.lastInsertRowid;
+
+            const medias = Array.isArray(item.medias) ? item.medias : [];
+            for (const media of medias) {
+              db.prepare(`
+                INSERT INTO medias (item_id, title, type, reference, order_num, completed)
+                VALUES (?, ?, ?, ?, ?, ?)
+              `).run(
+                newItemId,
+                media.title || '',
+                media.type || 'other',
+                media.reference || '',
+                media.order_num || 1,
+                media.completed ? 1 : 0
+              );
+            }
+          }
+        }
+      }
+
+      db.exec('COMMIT;');
+      return { success: true, eventId: newEventId };
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      throw err;
+    }
   }
 };
 

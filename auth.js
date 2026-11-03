@@ -5,6 +5,7 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { queries } = require('./db');
+const { isValidPin } = require('./pin');
 
 // In-memory rate limiting map: ip -> { attempts: number, lastAttempt: timestamp, blockedUntil: timestamp }
 const rateLimitMap = new Map();
@@ -69,11 +70,6 @@ function createSession(role, ip) {
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   queries.createSession(token, role, ip, expires);
   return { token, role, expiresAt: expires };
-}
-
-// Validate PIN format (4 to 8 digits)
-function isValidPin(pin) {
-  return typeof pin === 'string' && /^\d{4,8}$/.test(pin);
 }
 
 // Middleware: Authenticate Session Token

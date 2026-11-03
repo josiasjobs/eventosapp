@@ -1,6 +1,6 @@
 /**
  * EventosAPP - Modals & Dialogs Management
- * Setup, PIN keypad, Item/Media editors, Event settings, and LAN QR code pairing
+ * Setup, PIN keypad, Parte/Mídia editors, Event settings, and LAN QR code pairing
  */
 
 const Modals = {
@@ -15,8 +15,8 @@ const Modals = {
     this.activeModal = modal;
     document.body.style.overflow = 'hidden';
 
-    // Auto-focus first input if present
-    setTimeout(() => {
+    // Auto-focus the first input only on form dialogs (data-autofocus); other sheets must not pop the keyboard
+    if (modal.hasAttribute('data-autofocus')) setTimeout(() => {
       const firstInput = modal.querySelector('input:not([type="hidden"]), select, textarea');
       if (firstInput) firstInput.focus();
     }, 100);
@@ -44,40 +44,46 @@ const Modals = {
   pinContext: 'login', // 'login' | 'upgrade'
   currentPinValue: '',
 
+  pinBusy: false,
+  PIN_LENGTH: 4,
+
   openPinModal(context = 'login') {
     this.pinContext = context;
     this.currentPinValue = '';
+    this.pinBusy = false;
     this.updatePinDots();
+    this.clearPinError();
 
-    const titleEl = document.getElementById('pin-modal-title');
-    const descEl = document.getElementById('pin-modal-desc');
-
-    if (context === 'upgrade') {
-      titleEl.textContent = 'Acesso ao Modo Edição';
-      descEl.textContent = 'Digite o PIN de Administrador (4 a 8 dígitos) para liberar ferramentas de edição.';
-    } else {
-      titleEl.textContent = 'Acesso ao EventosAPP';
-      descEl.textContent = 'Digite o PIN de Diretor ou de Administrador para acessar a aplicação.';
-    }
-
-    const errorEl = document.getElementById('pin-error-msg');
-    if (errorEl) errorEl.textContent = '';
+    // Login is mandatory; only the edit-mode upgrade can be dismissed
+    const closeBtn = document.getElementById('pin-close');
+    if (closeBtn) closeBtn.hidden = context !== 'upgrade';
 
     this.open('modal-pin-auth');
   },
 
+  clearPinError() {
+    const errorEl = document.getElementById('pin-error-msg');
+    if (errorEl) errorEl.textContent = '';
+    const dots = document.getElementById('pin-dots');
+    if (dots) dots.classList.remove('is-error');
+  },
+
   handlePinDigit(digit) {
-    if (this.currentPinValue.length >= 8) return;
+    if (this.pinBusy || this.currentPinValue.length >= this.PIN_LENGTH) return;
+    this.clearPinError();
     this.currentPinValue += digit;
     this.updatePinDots();
+    if (this.currentPinValue.length === this.PIN_LENGTH) this.submitPin();
   },
 
   handlePinBackspace() {
+    if (this.pinBusy) return;
     this.currentPinValue = this.currentPinValue.slice(0, -1);
     this.updatePinDots();
   },
 
   handlePinClear() {
+    if (this.pinBusy) return;
     this.currentPinValue = '';
     this.updatePinDots();
   },
@@ -93,77 +99,94 @@ const Modals = {
   },
 
   async submitPin() {
-    const errorEl = document.getElementById('pin-error-msg');
-    if (this.currentPinValue.length < 4) {
-      if (errorEl) errorEl.textContent = 'O PIN deve conter pelo menos 4 dígitos.';
-      return;
-    }
+    if (this.pinBusy || this.currentPinValue.length !== this.PIN_LENGTH) return;
+    this.pinBusy = true;
+    const pin = this.currentPinValue;
 
     try {
-      if (errorEl) errorEl.textContent = 'Validando PIN...';
-
       if (this.pinContext === 'upgrade') {
-        const res = await Api.upgradeSession(this.currentPinValue);
+        const res = await Api.upgradeSession(pin);
         AppState.setAuth(res.token, res.role);
         AppState.setMode('editor');
         this.close('modal-pin-auth');
-        window.showToast('Modo Edição ativado com sucesso!', 'success');
       } else {
-        const res = await Api.login(this.currentPinValue);
+        const res = await Api.login(pin);
         AppState.setAuth(res.token, res.role);
         this.close('modal-pin-auth');
-        window.showToast(`Bem-vindo ao ${res.eventName || 'Evento'}!`, 'success');
         window.dispatchEvent(new CustomEvent('init-app-data'));
       }
-    } catch (err) {
-      if (errorEl) errorEl.textContent = err.message || 'PIN incorreto. Tente novamente.';
       this.currentPinValue = '';
       this.updatePinDots();
+    } catch (err) {
+      this.currentPinValue = '';
+      this.updatePinDots();
+      const errorEl = document.getElementById('pin-error-msg');
+      if (err.status === 401) {
+        // The server answers 401 both for a wrong admin PIN and for a dead session, so ask it
+        if (this.pinContext === 'upgrade') {
+          try {
+            await Api.verifySession();
+          } catch (verifyErr) {
+            // Session invalid: Api.request already cleared auth and fired auth-required (login keypad)
+            return;
+          }
+        }
+        this.shakePinDots();
+      } else if (err.status === 429) {
+        if (errorEl) errorEl.textContent = `Aguarde ${err.remainingSeconds}s`;
+      } else {
+        window.showToast(err.message || 'Não foi possível validar o PIN.', 'error');
+      }
+    } finally {
+      this.pinBusy = false;
     }
+  },
+
+  // Red + shaking dots for 400 ms
+  shakePinDots() {
+    const dots = document.getElementById('pin-dots');
+    if (!dots) return;
+    dots.classList.remove('is-error');
+    void dots.offsetWidth; // restart the animation
+    dots.classList.add('is-error');
+    setTimeout(() => dots.classList.remove('is-error'), 400);
   },
 
   // ==========================================
   // INITIAL SETUP MODAL (RF-01)
   // ==========================================
   async submitSetup(form) {
-    const eventName = form.eventName.value;
-    const category = form.category.value;
-    const firstDayLabel = form.firstDayLabel.value;
-    const firstDayDate = form.firstDayDate.value;
-    const firstShiftName = form.firstShiftName.value;
+    const eventName = form.eventName.value.trim();
     const directorPin = form.directorPin.value;
     const adminPin = form.adminPin.value;
 
     const errorEl = document.getElementById('setup-error-msg');
     errorEl.textContent = '';
 
-    if (!eventName.trim()) {
+    if (!eventName) {
       errorEl.textContent = 'Informe o nome do evento.';
       return;
     }
-    if (!/^\d{4,8}$/.test(directorPin)) {
-      errorEl.textContent = 'O PIN do Diretor deve ter de 4 a 8 dígitos numéricos.';
+    if (!/^\d{4}$/.test(directorPin)) {
+      errorEl.textContent = 'O PIN do diretor deve ter 4 dígitos.';
       return;
     }
-    if (!/^\d{4,8}$/.test(adminPin)) {
-      errorEl.textContent = 'O PIN de Administrador deve ter de 4 a 8 dígitos numéricos.';
+    if (!/^\d{4}$/.test(adminPin)) {
+      errorEl.textContent = 'O PIN de admin deve ter 4 dígitos.';
       return;
     }
 
     try {
       const res = await Api.setup({
         eventName,
-        category,
-        firstDayLabel,
-        firstDayDate,
-        firstShiftName,
+        firstDayLabel: 'Dia 1',
+        firstShiftName: 'Geral',
         directorPin,
         adminPin
       });
 
       AppState.setAuth(res.token, res.role);
       this.close('modal-initial-setup');
-      window.showToast('Evento configurado com sucesso!', 'success');
       window.dispatchEvent(new CustomEvent('init-app-data'));
     } catch (err) {
       errorEl.textContent = err.message;
@@ -182,17 +205,16 @@ const Modals = {
     form.reset();
 
     if (itemId) {
-      titleEl.textContent = 'Editar Item da Programação';
+      titleEl.textContent = 'Editar parte';
       const item = AppState.shiftData.items.find(i => i.id === Number(itemId));
       if (item) {
         form.itemTitle.value = item.title || '';
         form.itemScheduledTime.value = item.scheduled_time || '';
         form.itemSpeaker.value = item.speaker || '';
-        if (form.itemActivityType) form.itemActivityType.value = item.activity_type || '';
         form.itemDescription.value = item.description || '';
       }
     } else {
-      titleEl.textContent = 'Novo Item na Programação';
+      titleEl.textContent = 'Nova parte';
       // Default scheduled time suggestion based on last item
       const lastItem = AppState.shiftData.items[AppState.shiftData.items.length - 1];
       if (lastItem && lastItem.scheduled_time) {
@@ -203,42 +225,39 @@ const Modals = {
     this.open('modal-item-editor');
   },
 
-  async submitItem(form) {
-    const title = form.itemTitle.value.trim();
-    const scheduledTime = form.itemScheduledTime.value.trim();
-    const speaker = form.itemSpeaker.value.trim();
-    const activityType = form.itemActivityType ? form.itemActivityType.value.trim() : '';
-    const description = form.itemDescription.value.trim();
+  // Pure payload builder; activity_type has no field, so edit sends the original back.
+  buildItemPayload(form, original) {
+    return {
+      title: form.itemTitle.value.trim(),
+      scheduledTime: form.itemScheduledTime.value.trim(),
+      speaker: form.itemSpeaker.value.trim(),
+      activityType: original ? (original.activity_type || '') : '',
+      description: form.itemDescription.value.trim()
+    };
+  },
 
-    if (!title) {
-      window.showToast('Informe o título do item.', 'warning');
+  async submitItem(form) {
+    const original = this.itemEditId
+      ? AppState.shiftData.items.find(i => i.id === Number(this.itemEditId))
+      : null;
+    const payload = this.buildItemPayload(form, original);
+
+    if (!payload.title) {
+      form.itemTitle.focus();
+      window.showToast('Informe o título da parte.', 'warning');
       return;
     }
-    if (!scheduledTime) {
+    if (!payload.scheduledTime) {
+      form.itemScheduledTime.focus();
       window.showToast('Informe o horário previsto.', 'warning');
       return;
     }
 
     try {
       if (this.itemEditId) {
-        await Api.updateItem(this.itemEditId, {
-          title,
-          scheduledTime,
-          speaker,
-          activityType,
-          description
-        });
-        window.showToast('Item atualizado com sucesso!', 'success');
+        await Api.updateItem(this.itemEditId, payload);
       } else {
-        await Api.createItem({
-          shiftId: AppState.selectedShiftId,
-          title,
-          scheduledTime,
-          speaker,
-          activityType,
-          description
-        });
-        window.showToast('Item adicionado à programação!', 'success');
+        await Api.createItem({ shiftId: AppState.selectedShiftId, ...payload });
       }
       this.close('modal-item-editor');
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
@@ -261,20 +280,59 @@ const Modals = {
     form.reset();
 
     if (mediaId) {
-      titleEl.textContent = 'Editar Mídia';
+      titleEl.textContent = 'Editar mídia';
       const item = AppState.shiftData.items.find(i => i.id === Number(itemId));
       const media = item && item.medias ? item.medias.find(m => m.id === Number(mediaId)) : null;
       if (media) {
         form.mediaTitle.value = media.title || '';
-        form.mediaType.value = media.type || 'other';
+        this.setMediaType(form, media.type || 'other');
         form.mediaReference.value = media.reference || '';
       }
     } else {
-      titleEl.textContent = 'Adicionar Nova Mídia';
-      form.mediaType.value = 'bible';
+      titleEl.textContent = 'Nova mídia';
+      this.setMediaType(form, 'bible');
     }
 
     this.open('modal-media-editor');
+  },
+
+  // Selects a type in the picker and mirrors it into the hidden input.
+  setMediaType(form, type) {
+    form.mediaType.value = type;
+    form.querySelectorAll('.type-picker [role="radio"]').forEach(btn => {
+      btn.setAttribute('aria-checked', String(btn.dataset.type === type));
+    });
+  },
+
+  initMediaTypePicker() {
+    const picker = document.querySelector('#form-media .type-picker');
+    if (!picker) return;
+    picker.addEventListener('click', e => {
+      const btn = e.target.closest('[role="radio"]');
+      if (btn) this.setMediaType(btn.closest('form'), btn.dataset.type);
+    });
+  },
+
+  // Importar playlist numa parte que já tem mídias: resolve 'append', 'replace' ou null (cancelado)
+  askImportMode(mediaCount) {
+    const text = document.getElementById('import-mode-text');
+    if (text) text.textContent = `Esta parte já tem ${mediaCount} ${mediaCount === 1 ? 'mídia' : 'mídias'}.`;
+    this.open('modal-import-mode');
+    return new Promise(resolve => { this._importModeResolve = resolve; });
+  },
+
+  initImportModeChoice() {
+    const modal = document.getElementById('modal-import-mode');
+    if (!modal) return;
+    modal.addEventListener('click', e => {
+      const btn = e.target.closest('[data-import-mode]');
+      if (!btn) return;
+      const mode = btn.dataset.importMode;
+      const resolve = this._importModeResolve;
+      this._importModeResolve = null;
+      this.close('modal-import-mode');
+      if (resolve) resolve(mode === 'cancel' ? null : mode);
+    });
   },
 
   async submitMedia(form) {
@@ -283,6 +341,7 @@ const Modals = {
     const reference = form.mediaReference.value.trim();
 
     if (!title) {
+      form.mediaTitle.focus();
       window.showToast('Informe o título da mídia.', 'warning');
       return;
     }
@@ -294,7 +353,6 @@ const Modals = {
           type,
           reference
         });
-        window.showToast('Mídia atualizada com sucesso!', 'success');
       } else {
         await Api.createMedia({
           itemId: this.mediaTargetItemId,
@@ -302,7 +360,6 @@ const Modals = {
           type,
           reference
         });
-        window.showToast('Mídia adicionada com sucesso!', 'success');
       }
       this.close('modal-media-editor');
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
@@ -315,50 +372,8 @@ const Modals = {
   // SETTINGS MODAL (STRUCTURE, EVENT, PINS)
   // ==========================================
   openSettingsModal() {
-    this.renderSettingsStructure();
     this.renderSettingsGeneral();
     this.open('modal-settings');
-  },
-
-  renderSettingsStructure() {
-    const container = document.getElementById('settings-structure-container');
-    if (!container) return;
-
-    let html = '';
-    AppState.days.forEach(day => {
-      html += `
-        <div class="entity-management-row">
-          <div class="entity-info">
-            <span class="entity-title">${day.label} (${day.date})</span>
-            <span class="entity-subtitle">${day.shifts ? day.shifts.length : 0} turnos</span>
-          </div>
-          <div style="display: flex; gap: 6px;">
-            <button class="btn btn-sm btn-secondary" onclick="Modals.promptAddShift(${day.id})">+ Turno</button>
-            <button class="btn btn-sm btn-ghost" onclick="Modals.promptEditDay(${day.id}, '${day.label}', '${day.date}')">Editar</button>
-            ${AppState.days.length > 1 ? `<button class="btn btn-sm btn-danger" onclick="Modals.deleteDay(${day.id})">Excluir</button>` : ''}
-          </div>
-        </div>
-      `;
-
-      if (day.shifts && day.shifts.length > 0) {
-        day.shifts.forEach(shift => {
-          html += `
-            <div class="entity-management-row" style="margin-left: 20px; border-left: 3px solid var(--accent-primary);">
-              <div class="entity-info">
-                <span class="entity-title">Turno: ${shift.name}</span>
-                <span class="entity-subtitle">${shift.start_time || '--:--'} às ${shift.end_time || '--:--'}</span>
-              </div>
-              <div style="display: flex; gap: 6px;">
-                <button class="btn btn-sm btn-ghost" onclick="Modals.promptEditShift(${shift.id}, '${shift.name}', '${shift.start_time || ''}', '${shift.end_time || ''}')">Editar</button>
-                ${day.shifts.length > 1 ? `<button class="btn btn-sm btn-danger" onclick="Modals.deleteShift(${shift.id})">Excluir</button>` : ''}
-              </div>
-            </div>
-          `;
-        });
-      }
-    });
-
-    container.innerHTML = html;
   },
 
   renderSettingsGeneral() {
@@ -368,104 +383,213 @@ const Modals = {
     form.eventCategory.value = AppState.event.category || '';
   },
 
-  async promptAddDay() {
-    const label = prompt('Rótulo do novo dia (ex: Dia 2 - Domingo):');
-    if (!label) return;
-    const date = prompt('Data (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
-    if (!date) return;
+  // ==========================================
+  // DAY & SHIFT DRAWER
+  // ==========================================
+  openShiftPicker() {
+    this.renderShiftPicker();
+    this.open('modal-shift-picker');
+  },
 
-    try {
-      await Api.createDay({ eventId: AppState.event.id, label, date });
-      window.showToast('Dia adicionado!', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
+  // Builds the drawer HTML (string) and, when the container exists, injects it.
+  renderShiftPicker() {
+    const esc = Logic.escapeHtml;
+    const editing = AppState.mode === 'editor';
+    const days = AppState.days || [];
+    const btn = (action, attrs, name, label, cls = '') =>
+      `<button type="button" class="icon-btn ${cls}" data-action="${action}" ${attrs} title="${label}" aria-label="${label}">${window.icon(name, 20)}</button>`;
+    const moreBtn = (action, id, label) =>
+      btn(action, `data-id="${Number(id)}" aria-haspopup="menu" aria-expanded="false"`, 'more', label, 'more-btn edit-only');
+
+    let html = '';
+    days.forEach(day => {
+      const shifts = day.shifts || [];
+      html += `<div class="row row-day">
+        <span class="row-grow">${esc(day.label)} <span class="row-muted-date">${esc(day.date)}</span></span>`;
+      if (editing) {
+        html += btn('add-shift', `data-id="${Number(day.id)}"`, 'plus', 'Novo turno', 'edit-only');
+        html += moreBtn('day-menu', day.id, 'Ações do dia');
+      }
+      html += '</div>';
+      shifts.forEach(shift => {
+        const selected = shift.id === AppState.selectedShiftId;
+        html += `<div class="row row-shift${selected ? ' selected' : ''}" data-action="select-shift" data-day-id="${Number(day.id)}" data-id="${Number(shift.id)}" role="button" tabindex="0">
+          <span class="row-grow">${esc(shift.name)}</span>`;
+        if (selected) html += `<span class="row-accent">${window.icon('check', 20)}</span>`;
+        if (editing) html += moreBtn('shift-menu', shift.id, 'Ações do turno');
+        html += '</div>';
+      });
+    });
+    if (editing) {
+      html += `<div class="row row-accent" data-action="add-day" role="button" tabindex="0">${window.icon('plus', 20)}<span>Novo dia</span></div>`;
+    }
+    if (!days.length) html = '<div class="row row-static">Nenhum dia cadastrado.</div>';
+
+    const container = document.getElementById('shift-picker-container');
+    if (container) container.innerHTML = html;
+    return html;
+  },
+
+  // Menu of a day or shift: rename, delete (two taps). The last day/shift cannot be deleted.
+  openShiftPickerMenu(el) {
+    const id = Number(el.dataset.id);
+    const run = action => this.handleShiftPickerAction({ dataset: { action, id: String(id) } });
+    if (el.dataset.action === 'day-menu') {
+      const actions = [{ icon: 'pencil', label: 'Renomear dia', onClick: () => run('edit-day') }];
+      if ((AppState.days || []).length > 1) {
+        actions.push({ icon: 'trash', label: 'Excluir dia', danger: true, onClick: () => run('delete-day') });
+      }
+      UIDirector.openRowMenu(el, actions);
+    } else {
+      const found = this._findShift(id);
+      if (!found) return;
+      const actions = [{ icon: 'pencil', label: 'Renomear turno', onClick: () => run('edit-shift') }];
+      if ((found.day.shifts || []).length > 1) {
+        actions.push({ icon: 'trash', label: 'Excluir turno', danger: true, onClick: () => run('delete-shift') });
+      }
+      UIDirector.openRowMenu(el, actions);
     }
   },
 
-  async promptEditDay(id, currentLabel, currentDate) {
-    const label = prompt('Rótulo do dia:', currentLabel);
-    if (!label) return;
-    const date = prompt('Data (YYYY-MM-DD):', currentDate);
-    if (!date) return;
+  _findShift(shiftId) {
+    for (const d of AppState.days) {
+      const s = (d.shifts || []).find(x => x.id === shiftId);
+      if (s) return { day: d, shift: s };
+    }
+    return null;
+  },
 
-    try {
-      await Api.updateDay(id, { label, date });
-      window.showToast('Dia atualizado!', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
+  async handleShiftPickerAction(el) {
+    const action = el.dataset.action;
+    const id = Number(el.dataset.id);
+    const dayId = Number(el.dataset.dayId);
+    if (action === 'select-shift') {
+      AppState.selectShift(dayId, id);
+      this.close('modal-shift-picker');
+      UIDirector.renderShiftLabel();
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+      return;
+    }
+    const day = AppState.days.find(d => d.id === id);
+    const found = this._findShift(id);
+    const refresh = () => window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
+    const back = () => this.openShiftPicker();
+
+    if (action === 'add-day') {
+      this.openQuickForm({
+        title: 'Novo dia',
+        fields: [
+          { name: 'label', label: 'Rótulo', type: 'text', required: true },
+          { name: 'date', label: 'Data', type: 'date', value: Logic.localDateISO(new Date()), required: true }
+        ],
+        onSubmit: async v => { await Api.createDay({ eventId: AppState.event.id, label: v.label, date: v.date }); refresh(); back(); },
+        onCancel: back
+      });
+    } else if (action === 'edit-day' && day) {
+      this.openQuickForm({
+        title: 'Editar dia',
+        fields: [
+          { name: 'label', label: 'Rótulo', type: 'text', value: day.label, required: true },
+          { name: 'date', label: 'Data', type: 'date', value: day.date, required: true }
+        ],
+        onSubmit: async v => { await Api.updateDay(day.id, { label: v.label, date: v.date }); refresh(); back(); },
+        onCancel: back
+      });
+    } else if (action === 'delete-day' && day) {
+      try { await Api.deleteDay(day.id); refresh(); } catch (err) { window.showToast(err.message, 'error'); }
+    } else if (action === 'add-shift' && day) {
+      this.openQuickForm({
+        title: 'Novo turno',
+        fields: [{ name: 'name', label: 'Nome do turno', type: 'text', required: true }],
+        onSubmit: async v => { await Api.createShift({ dayId: day.id, name: v.name }); refresh(); back(); },
+        onCancel: back
+      });
+    } else if (action === 'edit-shift' && found) {
+      const s = found.shift;
+      this.openQuickForm({
+        title: 'Renomear turno',
+        fields: [{ name: 'name', label: 'Nome do turno', type: 'text', value: s.name, required: true }],
+        onSubmit: async v => {
+          await Api.updateShift(s.id, { name: v.name, startTime: s.start_time || '', endTime: s.end_time || '' });
+          refresh(); back();
+        },
+        onCancel: back
+      });
+    } else if (action === 'delete-shift' && found) {
+      try { await Api.deleteShift(found.shift.id); refresh(); } catch (err) { window.showToast(err.message, 'error'); }
     }
   },
 
-  async deleteDay(id) {
-    if (!confirm('Deseja realmente excluir este dia e todos os seus turnos e itens?')) return;
-    try {
-      await Api.deleteDay(id);
-      window.showToast('Dia excluído com sucesso.', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
+  _onShiftPickerEl(el) {
+    if (el.dataset.action === 'day-menu' || el.dataset.action === 'shift-menu') this.openShiftPickerMenu(el);
+    else this.handleShiftPickerAction(el);
   },
 
-  async promptAddShift(dayId) {
-    const name = prompt('Nome do turno (ex: Manhã, Tarde, Noite):');
-    if (!name) return;
-    const startTime = prompt('Horário inicial (opcional, ex: 19:00):', '');
-    const endTime = prompt('Horário final (opcional, ex: 21:30):', '');
-
-    try {
-      await Api.createShift({ dayId, name, startTime, endTime });
-      window.showToast('Turno adicionado!', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
+  initShiftPicker() {
+    const container = document.getElementById('shift-picker-container');
+    if (!container || container.dataset.bound) return;
+    container.dataset.bound = '1';
+    container.addEventListener('click', e => {
+      const el = e.target.closest('[data-action]');
+      if (el && container.contains(el)) this._onShiftPickerEl(el);
+    });
+    container.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const el = e.target.closest('[data-action]');
+      if (el && el === e.target) { e.preventDefault(); this._onShiftPickerEl(el); }
+    });
   },
 
-  async promptEditShift(id, currentName, curStart, curEnd) {
-    const name = prompt('Nome do turno:', currentName);
-    if (!name) return;
-    const startTime = prompt('Horário inicial:', curStart);
-    const endTime = prompt('Horário final:', curEnd);
+  // Generic quick form. fields: {name, label, type:'text'|'date'|'time', value?, required?}[]
+  openQuickForm({ title, fields, onSubmit, onCancel }) {
+    const esc = Logic.escapeHtml;
+    const form = document.getElementById('quick-form');
+    document.getElementById('quick-form-title').textContent = title;
+    document.getElementById('quick-form-fields').innerHTML = fields.map(f => `
+      <div class="form-group">
+        <label class="form-label" for="qf-${esc(f.name)}">${esc(f.label)}</label>
+        <input class="form-input" id="qf-${esc(f.name)}" name="${esc(f.name)}" type="${esc(f.type || 'text')}"
+          value="${esc(f.value == null ? '' : f.value)}"${f.required ? ' required' : ''} autocomplete="off">
+      </div>`).join('');
 
-    try {
-      await Api.updateShift(id, { name, startTime, endTime });
-      window.showToast('Turno atualizado!', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
-  },
-
-  async deleteShift(id) {
-    if (!confirm('Deseja realmente excluir este turno e todos os seus itens?')) return;
-    try {
-      await Api.deleteShift(id);
-      window.showToast('Turno excluído com sucesso.', 'success');
-      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      this.renderSettingsStructure();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
+    const cancel = () => { this.close('modal-quick-form'); if (onCancel) onCancel(); };
+    document.getElementById('quick-form-cancel').onclick = cancel;
+    this._quickFormCancel = cancel; // Esc behaves like the ✕
+    let busy = false;
+    form.onsubmit = async e => {
+      e.preventDefault();
+      if (busy) return;
+      const values = {};
+      for (const f of fields) {
+        const v = form.elements[f.name].value.trim();
+        if (f.required && !v) { form.elements[f.name].focus(); return; }
+        values[f.name] = v;
+      }
+      busy = true;
+      try {
+        this.close('modal-quick-form');
+        await onSubmit(values);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+        if (onCancel) onCancel();
+      } finally {
+        busy = false;
+      }
+    };
+    this.open('modal-quick-form');
   },
 
   async submitSettingsGeneral(form) {
     const name = form.eventName.value.trim();
     const category = form.eventCategory.value.trim();
     if (!name) {
+      form.eventName.focus();
       window.showToast('O nome do evento não pode ficar vazio.', 'warning');
       return;
     }
     try {
       await Api.updateEvent(AppState.event.id, { name, category });
-      window.showToast('Informações do evento salvas!', 'success');
+      this.close('modal-settings'); // closing is the success feedback (no toast)
       window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
     } catch (err) {
       window.showToast(err.message, 'error');
@@ -476,7 +600,18 @@ const Modals = {
     const dirPin = form.newDirectorPin.value.trim();
     const admPin = form.newAdminPin.value.trim();
     if (!dirPin && !admPin) {
+      form.newDirectorPin.focus();
       window.showToast('Digite um novo PIN para atualizar.', 'warning');
+      return;
+    }
+    if (dirPin && !/^\d{4}$/.test(dirPin)) {
+      form.newDirectorPin.focus();
+      window.showToast('O PIN do diretor deve ter 4 dígitos.', 'warning');
+      return;
+    }
+    if (admPin && !/^\d{4}$/.test(admPin)) {
+      form.newAdminPin.focus();
+      window.showToast('O PIN de admin deve ter 4 dígitos.', 'warning');
       return;
     }
     try {
@@ -485,33 +620,96 @@ const Modals = {
         adminPin: admPin || undefined
       });
       form.reset();
-      window.showToast('PINs atualizados com sucesso!', 'success');
+      this.close('modal-settings'); // closing is the success feedback (no toast)
     } catch (err) {
       window.showToast(err.message, 'error');
     }
   },
 
   // ==========================================
+  // EVENT BACKUP & RESTORE
+  // ==========================================
+  async downloadEventBackup() {
+    try {
+      await Api.downloadBackup();
+    } catch (err) {
+      window.showToast('Erro ao baixar backup: ' + err.message, 'error');
+    }
+  },
+
+  // btn: the restore button; first tap arms it (UIDirector.confirmDelete), second tap restores
+  restoreEventBackup(btn) {
+    const fileInput = document.getElementById('backup-file-input');
+    const keepPinsCheckbox = document.getElementById('backup-keep-pins');
+    const file = fileInput ? fileInput.files[0] : null;
+
+    if (!file) {
+      window.showToast('Selecione um arquivo .json de backup para restaurar.', 'warning');
+      return;
+    }
+
+    UIDirector.confirmDelete(btn, async () => {
+      const keepPins = keepPinsCheckbox ? keepPinsCheckbox.checked : true;
+      const text = await file.text().catch(() => { throw new Error('Erro ao ler o arquivo de backup.'); });
+      let backupData;
+      try {
+        backupData = JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error('O arquivo selecionado não é um JSON válido.');
+      }
+      try {
+        await Api.restoreBackup(backupData, keepPins);
+      } catch (err) {
+        throw new Error('Falha na restauração: ' + err.message);
+      }
+      fileInput.value = '';
+      this.close('modal-settings');
+      // The screen reloads with the restored data
+      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
+    });
+  },
+
+  // ==========================================
   // LAN CONNECTION & QR CODE MODAL
   // ==========================================
   openLanModal() {
-    const qrImg = document.getElementById('lan-qrcode-img');
-    const urlText = document.getElementById('lan-url-display');
-    const localText = document.getElementById('local-url-display');
-
-    if (AppState.lanInfo) {
+    const fill = () => {
+      const qrImg = document.getElementById('lan-qrcode-img');
+      const urlText = document.getElementById('lan-url-display');
+      if (!AppState.lanInfo) return;
       if (qrImg) qrImg.src = AppState.lanInfo.qrCode || '';
-      if (urlText) urlText.textContent = AppState.lanInfo.lanUrl || 'Nenhum IP detectado';
-      if (localText) localText.textContent = AppState.lanInfo.localUrl || 'http://localhost:3000';
+      if (urlText) urlText.textContent = AppState.lanInfo.lanUrl || AppState.lanInfo.localUrl || 'Nenhum IP detectado';
+    };
+    fill();
+    // Not loaded yet (first setup, or login after the start screen): fetch it now and fill when it arrives
+    if (!AppState.lanInfo) {
+      Api.getLanInfo()
+        .then(info => { AppState.setLanInfo(info); fill(); })
+        .catch(err => console.warn('Could not load LAN info:', err));
     }
     this.open('modal-lan-connect');
   },
 
-  copyLanUrl() {
-    if (AppState.lanInfo && AppState.lanInfo.lanUrl) {
-      navigator.clipboard.writeText(AppState.lanInfo.lanUrl);
-      window.showToast('Endereço da rede copiado!', 'success');
+  async copyLanUrl() {
+    const url = AppState.lanInfo && (AppState.lanInfo.lanUrl || AppState.lanInfo.localUrl);
+    if (!url) return;
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      ok = true;
+    } catch (e) {
+      // Plain http on the LAN has no clipboard API: fall back to a temporary textarea
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      ta.remove();
     }
+    if (ok) window.showToast('Endereço copiado', 'success');
+    else window.showToast('Não foi possível copiar o endereço.', 'error');
   }
 };
 
