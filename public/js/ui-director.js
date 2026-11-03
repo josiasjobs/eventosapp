@@ -322,37 +322,65 @@ const UIDirector = {
     return null;
   },
 
+  _mediaInFlight: new Set(),
+
   async handleMediaClick(mediaId) {
+    mediaId = Number(mediaId);
+    if (this._mediaInFlight.has(mediaId)) return;
     const found = this._findMedia(mediaId);
     if (!found) return;
     const { item, media } = found;
     const before = Boolean(media.completed);
+    const itemBefore = Boolean(item.completed);
 
-    // Optimistic update; the WebSocket echo re-applies the same value (idempotent).
-    AppState.toggleMediaCompleted(media.id, !before);
-
-    let resp;
+    this._mediaInFlight.add(mediaId);
     try {
-      resp = await Api.toggleMediaCompleted(media.id);
-    } catch (err) {
-      AppState.toggleMediaCompleted(media.id, before);
-      window.showToast(err.message, 'error');
-      return;
-    }
+      // Optimistic update of the media and of the part (WS echoes re-apply the same values).
+      AppState.toggleMediaCompleted(mediaId, !before);
+      const optimistic = Logic.itemCompletionAfterToggle(item.medias, itemBefore, !before);
+      if (optimistic !== null) AppState.toggleItemCompleted(item.id, optimistic);
 
-    const nowCompleted = resp && typeof resp.completed === 'boolean' ? resp.completed : !before;
-    AppState.toggleMediaCompleted(media.id, nowCompleted);
-    const target = Logic.itemCompletionAfterToggle(item.medias, Boolean(item.completed), nowCompleted);
-    if (target !== null) await this.setItemCompleted(item.id, target);
+      let resp;
+      try {
+        resp = await Api.toggleMediaCompleted(mediaId);
+      } catch (err) {
+        AppState.toggleMediaCompleted(mediaId, before);
+        const cur = this._findItem(item.id);
+        if (optimistic !== null && cur && Boolean(cur.completed) === optimistic) {
+          AppState.toggleItemCompleted(item.id, itemBefore);
+        }
+        window.showToast(err.message, 'error');
+        return;
+      }
+
+      const nowCompleted = resp && typeof resp.completed === 'boolean' ? resp.completed : !before;
+      AppState.toggleMediaCompleted(mediaId, nowCompleted);
+
+      // shiftData may have been replaced during the request: decide from the fresh item.
+      const fresh = this._findItem(item.id);
+      if (!fresh) return;
+      if (fresh === item) {
+        const target = Logic.itemCompletionAfterToggle(fresh.medias, itemBefore, nowCompleted);
+        if (target !== null) await this.setItemCompleted(fresh.id, target, { applied: true });
+      } else {
+        const target = Logic.itemCompletionAfterToggle(fresh.medias, Boolean(fresh.completed), nowCompleted);
+        if (target !== null) await this.setItemCompleted(fresh.id, target);
+      }
+    } finally {
+      this._mediaInFlight.delete(mediaId);
+    }
   },
 
   // Sets a part to the desired state. The server route flips, so re-read state first and
   // only call when it differs; converge once if another device flipped in between.
-  async setItemCompleted(itemId, desired) {
+  // opts.applied: the local state was already set optimistically, so persist without the equality skip.
+  async setItemCompleted(itemId, desired, opts = {}) {
     const item = this._findItem(itemId);
-    if (!item || Boolean(item.completed) === desired) return;
-
-    AppState.toggleItemCompleted(item.id, desired);
+    if (!item) return;
+    if (!opts.applied) {
+      if (Boolean(item.completed) === desired) return;
+      AppState.toggleItemCompleted(item.id, desired);
+    }
     try {
       const resp = await Api.toggleItemCompleted(item.id);
       if (resp && typeof resp.completed === 'boolean' && resp.completed !== desired) {
