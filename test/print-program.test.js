@@ -108,3 +108,15 @@ test('roteiro mostra o número do discurso e não a sequência das partes', () =
   assert.doesNotMatch(html, /class="num">\s*1\s*</);
   assert.doesNotMatch(html, /class="num">\s*2\s*</);
 });
+
+test('roteiro só de discursos identifica isso no cabeçalho e conta só discursos', () => {
+  const html = buildProgramHtml({ ...data, onlyTalks: true, items: [
+    { scheduled_time: '09:20', title: 'Discurso A', speaker: '', description: '', talk_number: 12, medias: [] }
+  ] });
+  assert.match(html, /Somente discursos/);
+  assert.match(html, /1 discurso\b/);
+});
+
+test('roteiro completo não mostra o aviso de discursos', () => {
+  assert.doesNotMatch(buildProgramHtml(data), /Somente discursos/);
+});

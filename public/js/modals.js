@@ -339,25 +339,31 @@ const Modals = {
     });
   },
 
-  // Importar playlist numa parte que já tem mídias: resolve 'append', 'replace' ou null (cancelado)
-  askImportMode(mediaCount) {
-    const text = document.getElementById('import-mode-text');
-    if (text) text.textContent = `Esta parte já tem ${mediaCount} ${mediaCount === 1 ? 'mídia' : 'mídias'}.`;
-    this.open('modal-import-mode');
-    return new Promise(resolve => { this._importModeResolve = resolve; });
+  // Choice sheet: resolves the chosen option's value, or null when cancelled (✕).
+  // options: [{ value, label, icon?, style?: 'accent' | 'danger' }]
+  askChoice({ title, text = '', options }) {
+    document.getElementById('choice-title').textContent = title;
+    const textEl = document.getElementById('choice-text');
+    textEl.textContent = text;
+    textEl.hidden = !text;
+    document.getElementById('choice-options').innerHTML = options.map(o => `
+      <button type="button" class="btn ${o.style ? `btn-${o.style}` : 'btn-secondary'}" data-choice="${Logic.escapeHtml(o.value)}">
+        ${o.icon ? window.icon(o.icon) : ''}<span>${Logic.escapeHtml(o.label)}</span>
+      </button>`).join('');
+    this.open('modal-choice');
+    return new Promise(resolve => { this._choiceResolve = resolve; });
   },
 
-  initImportModeChoice() {
-    const modal = document.getElementById('modal-import-mode');
+  initChoice() {
+    const modal = document.getElementById('modal-choice');
     if (!modal) return;
     modal.addEventListener('click', e => {
-      const btn = e.target.closest('[data-import-mode]');
+      const btn = e.target.closest('[data-choice]');
       if (!btn) return;
-      const mode = btn.dataset.importMode;
-      const resolve = this._importModeResolve;
-      this._importModeResolve = null;
-      this.close('modal-import-mode');
-      if (resolve) resolve(mode === 'cancel' ? null : mode);
+      const resolve = this._choiceResolve;
+      this._choiceResolve = null;
+      this.close('modal-choice');
+      if (resolve) resolve(btn.dataset.choice || null);
     });
   },
 

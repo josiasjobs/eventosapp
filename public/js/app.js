@@ -136,7 +136,7 @@ function setupEventListeners() {
   // Day/shift chip -> day & shift drawer
   Modals.initShiftPicker();
   Modals.initMediaTypePicker();
-  Modals.initImportModeChoice();
+  Modals.initChoice();
   Modals.initTalkField();
   const shiftBtn = document.getElementById('btn-shift-picker');
   if (shiftBtn) {
@@ -158,19 +158,35 @@ function setupEventListeners() {
   // Printed run sheet of the selected shift (edit mode only)
   const printBtn = document.getElementById('btn-print-program');
   if (printBtn) {
-    printBtn.addEventListener('click', () => {
-      const items = (AppState.shiftData && AppState.shiftData.items) || [];
-      if (items.length === 0) {
+    printBtn.addEventListener('click', async () => {
+      const allItems = (AppState.shiftData && AppState.shiftData.items) || [];
+      if (allItems.length === 0) {
         window.showToast('Sem partes neste turno', 'error');
+        return;
+      }
+      const choice = await Modals.askChoice({
+        title: 'Imprimir',
+        options: [
+          { value: 'all', label: 'Roteiro completo', icon: 'list', style: 'accent' },
+          { value: 'talks', label: 'Só discursos', icon: 'mic-vocal' }
+        ]
+      });
+      if (!choice) return;
+      const onlyTalks = choice === 'talks';
+      const items = onlyTalks ? allItems.filter(i => i.talk_number) : allItems;
+      if (items.length === 0) {
+        window.showToast('Nenhum discurso neste turno', 'error');
         return;
       }
       const day = (AppState.days || []).find(d => d.id === AppState.selectedDayId);
       const shift = day && (day.shifts || []).find(s => s.id === AppState.selectedShiftId);
+      // Opened right after the tap on the choice, so the browser still counts it as user-initiated
       const opened = PrintProgram.printProgram({
         eventName: AppState.event ? AppState.event.name : '',
         dayLabel: day ? day.label : '',
         shiftName: shift ? shift.name : '',
         generatedAt: new Date(),
+        onlyTalks,
         items
       });
       if (!opened) window.showToast('O navegador bloqueou a nova aba. Libere pop-ups para este endereço.', 'error');

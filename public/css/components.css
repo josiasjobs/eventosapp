@@ -37,9 +37,9 @@
 .btn-secondary { background: var(--surface-2); }
 .btn-danger { background: var(--surface-2); color: var(--danger); }
 
-/* Escolha ao importar playlist numa parte com mídias */
-.import-choice { display: flex; flex-direction: column; gap: 8px; }
-.import-choice-text { margin: 0 0 8px; color: var(--text-2); }
+/* Janela de escolha (Modals.askChoice) */
+.choice-options { display: flex; flex-direction: column; gap: 8px; }
+.choice-text { margin: 0 0 12px; color: var(--text-2); }
 
 /* Linha de lista */
 .row {

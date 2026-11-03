@@ -31,8 +31,8 @@
         aria-label="Conexão" data-icon="wifi"></button>
       <button type="button" class="icon-btn mode-btn" id="btn-mode-toggle" title="Edição (tecla E)"
         aria-label="Ligar ou desligar a edição" aria-pressed="false" data-icon="pencil"></button>
-      <button type="button" class="icon-btn edit-only" id="btn-print-program" title="Imprimir roteiro"
-        aria-label="Imprimir roteiro do turno" data-icon="file-text"></button>
+      <button type="button" class="icon-btn edit-only" id="btn-print-program" title="Imprimir"
+        aria-label="Imprimir roteiro do turno" data-icon="printer"></button>
       <button type="button" class="icon-btn edit-only" id="btn-open-settings" title="Configurações"
         aria-label="Configurações" data-icon="gear"></button>
     </header>
@@ -368,18 +368,17 @@
     </div>
   </div>
 
-  <!-- Importar playlist numa parte que já tem mídias -->
-  <div class="modal-backdrop" id="modal-import-mode">
+  <!-- Escolha entre opções (importar playlist, imprimir roteiro); preenchida por Modals.askChoice -->
+  <div class="modal-backdrop" id="modal-choice">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h2 class="modal-title">Importar playlist</h2>
-        <button type="button" class="icon-btn" data-import-mode="cancel" title="Cancelar" aria-label="Cancelar"
+        <h2 class="modal-title" id="choice-title"></h2>
+        <button type="button" class="icon-btn" data-choice="" title="Cancelar" aria-label="Cancelar"
           data-icon="x"></button>
       </div>
-      <div class="modal-body import-choice">
-        <p class="import-choice-text" id="import-mode-text"></p>
-        <button type="button" class="btn btn-accent" data-import-mode="append"><span data-icon="plus"></span>Adicionar abaixo</button>
-        <button type="button" class="btn btn-danger" data-import-mode="replace"><span data-icon="trash"></span>Substituir</button>
+      <div class="modal-body choice-body">
+        <p class="choice-text" id="choice-text" hidden></p>
+        <div class="choice-options" id="choice-options"></div>
       </div>
     </div>
   </div>

@@ -20,7 +20,8 @@
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  // data: { eventName, dayLabel, shiftName, generatedAt: Date, items: [{ scheduled_time, title, speaker, description, medias: [{ type, title, reference }] }] }
+  // data: { eventName, dayLabel, shiftName, generatedAt: Date, onlyTalks?: boolean,
+  //         items: [{ scheduled_time, title, speaker, description, talk_number, medias: [{ type, title, reference }] }] }
   // opts: { icon(name, size) -> svg string, typeIcons: { [mediaType]: iconName } } — sem eles, só texto
   function buildProgramHtml(data, opts = {}) {
     const icon = opts.icon || (() => '');
@@ -84,6 +85,7 @@
   h1 { font-size: 15pt; margin: 0; line-height: 1.2; }
   .chip { display: inline-block; margin-top: 3px; padding: 1px 8px; border: 1px solid var(--line);
     border-radius: var(--radius); font-weight: 600; font-size: 9.5pt; }
+  .chip-accent { border-color: var(--accent); color: var(--accent); }
   .head-side { text-align: right; font-size: 8.5pt; color: var(--text-2); }
   .head-side strong { display: block; font-size: 10pt; color: var(--text); }
 
@@ -113,9 +115,12 @@
     <div class="head-text">
       <h1>${esc(data.eventName)}</h1>
       <span class="chip">${esc(context)}</span>
+      ${data.onlyTalks ? '<span class="chip chip-accent">Somente discursos</span>' : ''}
     </div>
     <div class="head-side">
-      <strong>${items.length} ${items.length === 1 ? 'parte' : 'partes'} · ${mediaCount} ${mediaCount === 1 ? 'mídia' : 'mídias'}</strong>
+      <strong>${items.length} ${data.onlyTalks
+        ? (items.length === 1 ? 'discurso' : 'discursos')
+        : (items.length === 1 ? 'parte' : 'partes')} · ${mediaCount} ${mediaCount === 1 ? 'mídia' : 'mídias'}</strong>
       Gerado em ${esc(formatDateTime(data.generatedAt))}
     </div>
   </header>
