@@ -313,6 +313,28 @@ const Modals = {
     });
   },
 
+  // Importar playlist numa parte que já tem mídias: resolve 'append', 'replace' ou null (cancelado)
+  askImportMode(mediaCount) {
+    const text = document.getElementById('import-mode-text');
+    if (text) text.textContent = `Esta parte já tem ${mediaCount} ${mediaCount === 1 ? 'mídia' : 'mídias'}.`;
+    this.open('modal-import-mode');
+    return new Promise(resolve => { this._importModeResolve = resolve; });
+  },
+
+  initImportModeChoice() {
+    const modal = document.getElementById('modal-import-mode');
+    if (!modal) return;
+    modal.addEventListener('click', e => {
+      const btn = e.target.closest('[data-import-mode]');
+      if (!btn) return;
+      const mode = btn.dataset.importMode;
+      const resolve = this._importModeResolve;
+      this._importModeResolve = null;
+      this.close('modal-import-mode');
+      if (resolve) resolve(mode === 'cancel' ? null : mode);
+    });
+  },
+
   async submitMedia(form) {
     const title = form.mediaTitle.value.trim();
     const type = form.mediaType.value;

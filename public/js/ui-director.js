@@ -407,7 +407,12 @@ const UIDirector = {
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      const ev = new CustomEvent('import-playlist', { detail: { itemId, file } });
+      // Parte com mídias: perguntar se substitui ou adiciona abaixo da última
+      const item = this._findItem(itemId);
+      const count = item && item.medias ? item.medias.length : 0;
+      const mode = count > 0 ? await Modals.askImportMode(count) : 'append';
+      if (!mode) return;
+      const ev = new CustomEvent('import-playlist', { detail: { itemId, file, mode } });
       window.dispatchEvent(ev);
     };
     document.body.appendChild(input);

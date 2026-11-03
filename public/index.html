@@ -358,6 +358,22 @@
     </div>
   </div>
 
+  <!-- Importar playlist numa parte que já tem mídias -->
+  <div class="modal-backdrop" id="modal-import-mode">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title">Importar playlist</h2>
+        <button type="button" class="icon-btn" data-import-mode="cancel" title="Cancelar" aria-label="Cancelar"
+          data-icon="x"></button>
+      </div>
+      <div class="modal-body import-choice">
+        <p class="import-choice-text" id="import-mode-text"></p>
+        <button type="button" class="btn btn-accent" data-import-mode="append"><span data-icon="plus"></span>Adicionar abaixo</button>
+        <button type="button" class="btn btn-danger" data-import-mode="replace"><span data-icon="trash"></span>Substituir</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="js/logic.js"></script>
   <script src="js/icons.js"></script>

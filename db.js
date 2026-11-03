@@ -281,6 +281,23 @@ const queries = {
     return db.prepare('DELETE FROM medias WHERE id = ?').run(id);
   },
 
+  // Playlist import: replace=true swaps the item's medias for the imported ones,
+  // otherwise they go after the last media. One transaction, so a failure keeps the old list.
+  importMedias(itemId, medias, replace) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      if (replace) db.prepare('DELETE FROM medias WHERE item_id = ?').run(itemId);
+      let orderNum = this.getMediasByItem(itemId).length + 1;
+      for (const m of medias) {
+        this.createMedia(itemId, m.title, m.type, m.reference, orderNum++);
+      }
+      db.exec('COMMIT;');
+    } catch (e) {
+      db.exec('ROLLBACK;');
+      throw e;
+    }
+  },
+
   // Sessions
   createSession(token, role, ipAddress, expiresAt) {
     return db.prepare('INSERT INTO sessions (token, role, ip_address, expires_at) VALUES (?, ?, ?, ?)').run(token, role, ipAddress, expiresAt);

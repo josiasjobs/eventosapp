@@ -809,10 +809,9 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
     console.log('[IMPORT] Total a importar:', rows.length);
     console.log('[IMPORT] Primeira row:', JSON.stringify(rows[0]));
 
-    const existing = queries.getMediasByItem(Number(itemId));
-    let orderIdx = existing.length + 1;
-
-    for (const row of rows) {
+    // mode=replace apaga as mídias atuais da parte; qualquer outro valor adiciona abaixo da última
+    const replace = req.body.mode === 'replace';
+    const medias = rows.map((row, i) => {
       const label = (row.Label || '').trim();
       let type = 'other';
       if (row.mediaPath) {
@@ -823,14 +822,15 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
       if (type === 'other' && bibleRegex.test(label)) type = 'bible';
 
       // Nome + regras do JW Library ("Editado", "Continuar", "Repetir"); observação em branco
-      const baseName = label || (row.mediaPath ? path.basename(row.mediaPath, path.extname(row.mediaPath)) : ('Item ' + orderIdx));
+      const baseName = label || (row.mediaPath ? path.basename(row.mediaPath, path.extname(row.mediaPath)) : ('Mídia ' + (i + 1)));
       const finalName = playlistMediaTitle(baseName, row);
-      const reference = '';
 
-      console.log('[IMPORT] #' + orderIdx + ': "' + finalName + '" tipo=' + type);
-      queries.createMedia(Number(itemId), finalName, type, reference, orderIdx);
-      orderIdx++;
-    }
+      console.log('[IMPORT] #' + (i + 1) + ': "' + finalName + '" tipo=' + type);
+      return { title: finalName, type, reference: '' };
+    });
+
+    // Uma playlist vazia nunca apaga as mídias existentes
+    if (medias.length > 0) queries.importMedias(Number(itemId), medias, replace);
 
     db.close();
     await fs.promises.rm(tmpDir, { recursive: true, force: true });

@@ -136,6 +136,7 @@ function setupEventListeners() {
   // Day/shift chip -> day & shift drawer
   Modals.initShiftPicker();
   Modals.initMediaTypePicker();
+  Modals.initImportModeChoice();
   const shiftBtn = document.getElementById('btn-shift-picker');
   if (shiftBtn) {
     shiftBtn.addEventListener('click', () => Modals.openShiftPicker());
@@ -165,8 +166,9 @@ function setupEventListeners() {
   });
 
   window.addEventListener('import-playlist', async (e) => {
-    const { itemId, file } = e.detail;
+    const { itemId, file, mode } = e.detail;
     const formData = new FormData();
+    formData.append('mode', mode || 'append');
     formData.append('playlist', file);
     try {
       const resp = await Api.request(`/api/items/${itemId}/import-playlist`, {
