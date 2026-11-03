@@ -31,13 +31,14 @@
 
     const mediaHtml = (m) => {
       const type = TYPE_LABELS[m.type] ? m.type : 'other';
+      const notes = Logic.mediaNotes(m.reference);
       return `
         <li class="media">
           <span class="box"></span>
           <span class="type">${icon(typeIcons[type], 16)}<span>${esc(TYPE_LABELS[type])}</span></span>
           <span class="media-text">
             <span class="media-title">${esc(m.title)}</span>
-            ${m.reference ? `<span class="notes">${esc(m.reference)}</span>` : ''}
+            ${notes ? `<span class="notes">${esc(notes)}</span>` : ''}
           </span>
         </li>`;
     };

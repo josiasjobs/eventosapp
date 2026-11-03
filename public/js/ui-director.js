@@ -88,7 +88,7 @@ const UIDirector = {
             <span class="media-type-icon" title="${uiEsc(typeInfo.label)}">${icon(typeInfo.icon)}</span>
             <span class="media-text">
               <span class="media-title">${uiEsc(media.title)}</span>
-              ${media.reference ? `<span class="media-notes">${uiEsc(media.reference)}</span>` : ''}
+              ${Logic.mediaNotes(media.reference) ? `<span class="media-notes">${uiEsc(Logic.mediaNotes(media.reference))}</span>` : ''}
             </span>
             ${uiIconButton('more', 'Ações da mídia', 'data-action="media-menu" aria-haspopup="menu" aria-expanded="false"', 'more-btn edit-only')}
           </div>

@@ -98,5 +98,13 @@
     return items.length > 0 ? items[0].id : null;
   }
 
-  return { localDateISO, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
+  // Media notes as typed in the app. Old playlist imports stored the package's internal
+  // file name (uuid.ext) there; that is not a note, so it shows as empty.
+  const IMPORTED_FILE_REF = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{2,5}$/i;
+  function mediaNotes(reference) {
+    const text = (reference || '').trim();
+    return IMPORTED_FILE_REF.test(text) ? '' : text;
+  }
+
+  return { localDateISO, mediaNotes, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
 });

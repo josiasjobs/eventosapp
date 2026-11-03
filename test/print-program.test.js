@@ -92,3 +92,9 @@ test('cores do app são preservadas na impressão', () => {
   assert.match(html, /#f26a1b/i);
   assert.match(html, /print-color-adjust:\s*exact/);
 });
+
+test('roteiro não mostra o nome interno de arquivo de importações antigas', () => {
+  const html = buildProgramHtml({ ...data, items: [{ scheduled_time: '08:00', title: 'P', speaker: '', description: '',
+    medias: [{ type: 'image', title: 'FOTO-01.jpg', reference: '95c33726-1d91-4df6-9f0e-517cb885724f.jpg' }] }] });
+  assert.doesNotMatch(html, /95c33726/);
+});

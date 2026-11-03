@@ -143,3 +143,16 @@ test('pickInitialItem cai na primeira parte sem salva nem do servidor', () => {
 test('pickInitialItem sem partes retorna null', () => {
   assert.equal(L.pickInitialItem([], 9, 8), null);
 });
+
+test('mediaNotes ignora o nome interno de arquivo gravado por importações antigas', () => {
+  assert.equal(L.mediaNotes('95c33726-1d91-4df6-9f0e-517cb885724f.jpg'), '');
+  assert.equal(L.mediaNotes('6EC5639F-0CED-4478-83F2-DCEC47AF4DF3.MP4'), '');
+  assert.equal(L.mediaNotes('  2abc66e5-c510-432d-9588-f9537d2c9e7f.jpg  '), '');
+});
+test('mediaNotes mantém observações escritas no app', () => {
+  assert.equal(L.mediaNotes('Projetor 2'), 'Projetor 2');
+  assert.equal(L.mediaNotes('Editado, com áudio'), 'Editado, com áudio');
+  assert.equal(L.mediaNotes('ver arquivo 95c33726-1d91-4df6-9f0e-517cb885724f.jpg'), 'ver arquivo 95c33726-1d91-4df6-9f0e-517cb885724f.jpg');
+  assert.equal(L.mediaNotes(''), '');
+  assert.equal(L.mediaNotes(null), '');
+});

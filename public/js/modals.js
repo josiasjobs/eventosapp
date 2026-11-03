@@ -286,7 +286,7 @@ const Modals = {
       if (media) {
         form.mediaTitle.value = media.title || '';
         this.setMediaType(form, media.type || 'other');
-        form.mediaReference.value = media.reference || '';
+        form.mediaReference.value = Logic.mediaNotes(media.reference);
       }
     } else {
       titleEl.textContent = 'Nova mídia';
