@@ -100,6 +100,42 @@ body.mode-editor .media-editor-actions {
   display: flex;
 }
 
+/* Media Drag Handle Button (Left lateral handle) */
+.media-drag-handle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 32px;
+  margin-left: -8px;
+  margin-right: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+body.mode-editor .media-drag-handle {
+  display: inline-flex;
+}
+
+.media-drag-handle:hover {
+  color: var(--color-primary);
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.media-drag-handle:active {
+  cursor: grabbing;
+}
+
 /* Add Item & Add Media Buttons */
 .btn-add-item-dashed {
   width: 100%;

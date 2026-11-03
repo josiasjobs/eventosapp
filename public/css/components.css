@@ -131,6 +131,12 @@
   border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
+.badge-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-live);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
 /* Media Type Badges */
 .badge-media-bible { background: var(--media-bible-bg); color: var(--media-bible); border: 1px solid rgba(6, 182, 212, 0.3); }
 .badge-media-image { background: var(--media-image-bg); color: var(--media-image); border: 1px solid rgba(168, 85, 247, 0.3); }

@@ -183,6 +183,23 @@
   border-color: rgba(16, 185, 129, 0.25);
 }
 
+.media-item-row.is-dragging {
+  opacity: 0.45;
+  border: 1px dashed var(--color-primary);
+  background: rgba(245, 158, 11, 0.08);
+  transform: scale(0.99);
+}
+
+.media-item-row.drag-over-above {
+  border-top: 2px solid var(--color-primary) !important;
+  box-shadow: 0 -4px 10px rgba(245, 158, 11, 0.3);
+}
+
+.media-item-row.drag-over-below {
+  border-bottom: 2px solid var(--color-primary) !important;
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
+}
+
 .media-left-group {
   display: flex;
   align-items: center;
@@ -422,6 +439,71 @@
   border-radius: var(--radius-full);
 }
 
+/* Item Complete Toggle Button & Status */
+.timeline-item-card.is-completed {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.timeline-item-card.is-completed:not(.is-current) .item-name {
+  color: var(--text-muted);
+}
+
+.item-name.item-completed-text {
+  text-decoration: line-through;
+  opacity: 0.85;
+}
+
+.btn-item-complete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-medium);
+  background: var(--bg-surface-elevated);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.btn-item-complete:hover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: var(--color-live);
+  transform: translateY(-1px);
+}
+
+.btn-item-complete .item-check-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.btn-item-complete.completed {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: var(--color-live);
+}
+
+.btn-item-complete.completed .item-check-icon {
+  background: var(--color-live);
+  border-color: var(--color-live);
+  color: #ffffff;
+  box-shadow: 0 0 6px var(--color-live-glow);
+}
+
 /* Empty State */
 .empty-state {
   padding: 48px 24px;
@@ -441,13 +523,13 @@
   opacity: 0.4;
 }
 
-/* Center schedule picker trigger in director navigation toolbar */
+/* Center schedule picker trigger in director navigation toolbar (hidden on large screens where timeline is visible) */
 .btn-schedule-picker-trigger {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
   padding: 6px 14px;
-  display: flex;
+  display: none; /* Oculto em telas grandes */
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -527,8 +609,9 @@
     grid-template-columns: 1fr !important;
   }
 
-  /* Botão central ganha maior destaque no celular */
+  /* Botão central exibido apenas no celular / telas menores */
   .btn-schedule-picker-trigger {
+    display: flex;
     border-color: rgba(99, 102, 241, 0.5);
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(15, 22, 38, 0.85) 100%);
     box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);

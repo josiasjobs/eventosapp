@@ -492,6 +492,66 @@ const Modals = {
   },
 
   // ==========================================
+  // EVENT BACKUP & RESTORE
+  // ==========================================
+  async downloadEventBackup() {
+    try {
+      window.showToast('Gerando backup do evento...', 'info');
+      await Api.downloadBackup();
+      window.showToast('Backup baixado com sucesso!', 'success');
+    } catch (err) {
+      window.showToast('Erro ao baixar backup: ' + err.message, 'error');
+    }
+  },
+
+  async restoreEventBackup() {
+    const fileInput = document.getElementById('backup-file-input');
+    const keepPinsCheckbox = document.getElementById('backup-keep-pins');
+    const file = fileInput ? fileInput.files[0] : null;
+
+    if (!file) {
+      window.showToast('Selecione um arquivo .json de backup para restaurar.', 'warning');
+      return;
+    }
+
+    if (!confirm('ATENÇÃO: A restauração substituirá todos os dados do evento ativo atual pelos dados deste arquivo de backup.\n\nDeseja realmente continuar?')) {
+      return;
+    }
+
+    const keepPins = keepPinsCheckbox ? keepPinsCheckbox.checked : true;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        let backupData;
+        try {
+          backupData = JSON.parse(e.target.result);
+        } catch (parseErr) {
+          throw new Error('O arquivo selecionado não é um JSON válido.');
+        }
+
+        window.showToast('Restaurando backup...', 'info');
+        const res = await Api.restoreBackup(backupData, keepPins);
+
+        window.showToast(res.message || 'Backup restaurado com sucesso!', 'success');
+        fileInput.value = '';
+        this.close('modal-settings');
+
+        // Refresh all local app data
+        window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
+      } catch (err) {
+        window.showToast('Falha na restauração: ' + err.message, 'error');
+      }
+    };
+
+    reader.onerror = () => {
+      window.showToast('Erro ao ler o arquivo de backup.', 'error');
+    };
+
+    reader.readAsText(file);
+  },
+
+  // ==========================================
   // LAN CONNECTION & QR CODE MODAL
   // ==========================================
   openLanModal() {

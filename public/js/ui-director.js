@@ -76,8 +76,23 @@ const UIDirector = {
         mediasHtml += `
           <div class="media-item-row ${media.completed ? 'completed' : ''}" 
                id="media-row-${media.id}" 
+               data-media-id="${media.id}" 
                onclick="UIDirector.handleMediaClick(event, ${media.id})">
             
+            <button class="media-drag-handle edit-only" 
+                    type="button" 
+                    title="Arrastar para reordenar" 
+                    onclick="event.stopPropagation()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="9" cy="5" r="1.8"/>
+                <circle cx="15" cy="5" r="1.8"/>
+                <circle cx="9" cy="12" r="1.8"/>
+                <circle cx="15" cy="12" r="1.8"/>
+                <circle cx="9" cy="19" r="1.8"/>
+                <circle cx="15" cy="19" r="1.8"/>
+              </svg>
+            </button>
+
             <div class="media-left-group">
               <div class="media-check-circle" title="${media.completed ? 'Reabrir mídia' : 'Marcar como concluída'}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -97,8 +112,6 @@ const UIDirector = {
             <div class="media-right-group">
               <!-- Edit mode only controls -->
               <div class="media-editor-actions" onclick="event.stopPropagation()">
-                <button class="action-btn-sm" title="Mover para cima" onclick="UIDirector.moveMedia(${currentItem.id}, ${media.id}, -1)">▲</button>
-                <button class="action-btn-sm" title="Mover para baixo" onclick="UIDirector.moveMedia(${currentItem.id}, ${media.id}, 1)">▼</button>
                 <button class="action-btn-sm" title="Editar mídia" onclick="Modals.openMediaModal(${currentItem.id}, ${media.id})">✏️</button>
                 <button class="action-btn-sm delete-btn" title="Excluir mídia" onclick="UIDirector.deleteMedia(${media.id})">🗑️</button>
               </div>
@@ -118,6 +131,7 @@ const UIDirector = {
               AO VIVO
             </span>
             ${currentItem.activity_type ? `<span class="badge badge-primary">${currentItem.activity_type}</span>` : ''}
+            ${currentItem.completed ? `<span class="badge badge-success" style="font-size: 0.65rem; padding: 1px 6px;">CONCLUÍDO</span>` : ''}
           </div>
 
           <div style="display: flex; align-items: center; gap: 10px;">
@@ -183,6 +197,8 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
 
       </div>
     `;
+
+    this.setupMediaDragAndDrop(currentItem.id);
   },
 
   // 2. Render Timeline (Program Schedule on Right)
@@ -215,7 +231,7 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
         const mediasDone = item.medias ? item.medias.filter(m => m.completed).length : 0;
 
         itemsHtml += `
-          <div class="timeline-item-card ${isCurrent ? 'is-current' : ''} ${isPassed ? 'is-passed' : ''}" 
+          <div class="timeline-item-card ${isCurrent ? 'is-current' : ''} ${isPassed ? 'is-passed' : ''} ${item.completed ? 'is-completed' : ''}" 
                id="timeline-item-${item.id}"
                onclick="UIDirector.handleTimelineItemClick(${item.id})">
             
@@ -228,8 +244,9 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
                   <span class="item-scheduled-time">${item.scheduled_time}</span>
                   ${item.activity_type ? `<span class="badge badge-primary" style="font-size: 0.65rem; padding: 1px 6px;">${item.activity_type}</span>` : ''}
                   ${isCurrent ? `<span class="badge badge-live" style="font-size: 0.65rem; padding: 1px 6px;">AO VIVO</span>` : ''}
+                  ${item.completed ? `<span class="badge badge-success" style="font-size: 0.65rem; padding: 1px 6px;">CONCLUÍDO</span>` : ''}
                 </div>
-                <span class="item-name">${item.title}</span>
+                <span class="item-name ${item.completed ? 'item-completed-text' : ''}">${item.title}</span>
                 ${item.speaker ? `<span class="item-speaker-preview">Por: ${item.speaker}</span>` : ''}
               </div>
             </div>
@@ -241,10 +258,22 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
                 </span>
               ` : ''}
 
+              <!-- Item Complete Button -->
+              <button class="btn-item-complete ${item.completed ? 'completed' : ''}" 
+                      title="${item.completed ? 'Marcar parte como pendente' : 'Marcar parte como concluída'}"
+                      onclick="event.stopPropagation(); UIDirector.toggleItemCompleted(${item.id})">
+                <div class="item-check-icon">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+                <span class="btn-item-complete-label">${item.completed ? 'Concluído' : 'Concluir'}</span>
+              </button>
+
               <!-- Edit Mode Item Actions -->
               <div class="timeline-item-actions" onclick="event.stopPropagation()">
                 ${!isCurrent ? `
-                  <button class="action-btn-sm play-btn" title="Definir como Em Execução" onclick="UIDirector.setCurrentItem(${item.id})">▶</button>
+                  <button class="action-btn-sm play-btn" title="Selecionar este item" onclick="UIDirector.setCurrentItem(${item.id})">▶</button>
                 ` : ''}
                 <button class="action-btn-sm" title="Mover para cima" onclick="UIDirector.moveItem(${item.id}, -1)">▲</button>
                 <button class="action-btn-sm" title="Mover para baixo" onclick="UIDirector.moveItem(${item.id}, 1)">▼</button>
@@ -377,35 +406,47 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
     }
   },
 
-  async handleTimelineItemClick(itemId) {
+  async toggleItemCompleted(itemId) {
+    const item = AppState.shiftData && AppState.shiftData.items ? AppState.shiftData.items.find(i => i.id === itemId) : null;
+    if (!item) return;
+
+    // Optimistic toggle
+    const newStatus = item.completed ? 0 : 1;
+    AppState.toggleItemCompleted(itemId, newStatus);
+
+    try {
+      await Api.toggleItemCompleted(itemId);
+    } catch (err) {
+      // Revert if error
+      AppState.toggleItemCompleted(itemId, item.completed ? 1 : 0);
+      window.showToast(err.message, 'error');
+    }
+  },
+
+  handleTimelineItemClick(itemId) {
     // Fecha modal caso aberto (seleção manual)
     Modals.close('modal-schedule-picker');
     this.setCurrentItem(itemId);
   },
 
-  async setCurrentItem(itemId) {
-    try {
-      await Api.setCurrentItem(AppState.selectedShiftId, itemId);
-      AppState.setCurrentItemId(itemId);
-      this.render();
-    } catch (err) {
-      window.showToast(err.message, 'error');
-    }
+  setCurrentItem(itemId) {
+    AppState.setCurrentItemId(itemId);
+    this.render();
   },
 
-  async navigatePrevious() {
+  navigatePrevious() {
     const items = AppState.shiftData.items || [];
     const currentIndex = items.findIndex(i => i.id === AppState.currentItemId);
     if (currentIndex > 0) {
-      await this.setCurrentItem(items[currentIndex - 1].id);
+      this.setCurrentItem(items[currentIndex - 1].id);
     }
   },
 
-  async navigateNext() {
+  navigateNext() {
     const items = AppState.shiftData.items || [];
     const currentIndex = items.findIndex(i => i.id === AppState.currentItemId);
     if (currentIndex !== -1 && currentIndex < items.length - 1) {
-      await this.setCurrentItem(items[currentIndex + 1].id);
+      this.setCurrentItem(items[currentIndex + 1].id);
     }
   },
 
@@ -461,6 +502,166 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
     } catch (err) {
       window.showToast(err.message, 'error');
+    }
+  },
+
+  setupMediaDragAndDrop(itemId) {
+    const list = document.getElementById('medias-checklist-list');
+    if (!list) return;
+
+    const rows = list.querySelectorAll('.media-item-row');
+    if (rows.length < 2) return;
+
+    let draggedRow = null;
+    let draggedMediaId = null;
+
+    rows.forEach(row => {
+      const handle = row.querySelector('.media-drag-handle');
+      if (!handle) return;
+
+      // Enable drag only when handle is pressed
+      handle.addEventListener('mousedown', () => {
+        row.setAttribute('draggable', 'true');
+      });
+
+      const resetDraggable = () => {
+        row.removeAttribute('draggable');
+      };
+
+      handle.addEventListener('mouseup', resetDraggable);
+      handle.addEventListener('mouseleave', resetDraggable);
+
+      // Desktop HTML5 Drag & Drop
+      row.addEventListener('dragstart', (e) => {
+        draggedRow = row;
+        draggedMediaId = Number(row.dataset.mediaId);
+        row.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(draggedMediaId));
+      });
+
+      row.addEventListener('dragend', () => {
+        row.removeAttribute('draggable');
+        row.classList.remove('is-dragging');
+        rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+        draggedRow = null;
+        draggedMediaId = null;
+      });
+
+      row.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!draggedRow || draggedRow === row) return;
+
+        const rect = row.getBoundingClientRect();
+        const isAbove = (e.clientY - rect.top) < (rect.height / 2);
+        row.classList.toggle('drag-over-above', isAbove);
+        row.classList.toggle('drag-over-below', !isAbove);
+      });
+
+      row.addEventListener('dragleave', () => {
+        row.classList.remove('drag-over-above', 'drag-over-below');
+      });
+
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        row.classList.remove('drag-over-above', 'drag-over-below');
+        if (!draggedMediaId) return;
+
+        const targetMediaId = Number(row.dataset.mediaId);
+        if (draggedMediaId === targetMediaId) return;
+
+        const rect = row.getBoundingClientRect();
+        const isAbove = (e.clientY - rect.top) < (rect.height / 2);
+
+        this.handleMediaReorderDrop(itemId, draggedMediaId, targetMediaId, isAbove);
+      });
+
+      // Mobile / Tablet Touch Events
+      let activeTouchRow = null;
+
+      handle.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        activeTouchRow = row;
+        draggedMediaId = Number(row.dataset.mediaId);
+        row.classList.add('is-dragging');
+      }, { passive: true });
+
+      handle.addEventListener('touchmove', (e) => {
+        if (!activeTouchRow) return;
+        const touch = e.touches[0];
+        const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetRow = elem ? elem.closest('.media-item-row') : null;
+
+        rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+        if (targetRow && targetRow !== activeTouchRow && list.contains(targetRow)) {
+          const rect = targetRow.getBoundingClientRect();
+          const isAbove = (touch.clientY - rect.top) < (rect.height / 2);
+          targetRow.classList.toggle('drag-over-above', isAbove);
+          targetRow.classList.toggle('drag-over-below', !isAbove);
+        }
+      }, { passive: true });
+
+      handle.addEventListener('touchend', (e) => {
+        if (!activeTouchRow) return;
+        activeTouchRow.classList.remove('is-dragging');
+
+        const changedTouch = e.changedTouches[0];
+        const elem = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY);
+        const targetRow = elem ? elem.closest('.media-item-row') : null;
+
+        rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+
+        if (targetRow && targetRow !== activeTouchRow && list.contains(targetRow)) {
+          const targetMediaId = Number(targetRow.dataset.mediaId);
+          const rect = targetRow.getBoundingClientRect();
+          const isAbove = (changedTouch.clientY - rect.top) < (rect.height / 2);
+          this.handleMediaReorderDrop(itemId, draggedMediaId, targetMediaId, isAbove);
+        }
+
+        activeTouchRow = null;
+        draggedMediaId = null;
+      });
+
+      handle.addEventListener('touchcancel', () => {
+        if (activeTouchRow) activeTouchRow.classList.remove('is-dragging');
+        rows.forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+        activeTouchRow = null;
+        draggedMediaId = null;
+      });
+    });
+  },
+
+  async handleMediaReorderDrop(itemId, draggedMediaId, targetMediaId, isAbove) {
+    const item = AppState.shiftData && AppState.shiftData.items ? AppState.shiftData.items.find(i => i.id === itemId) : null;
+    if (!item || !item.medias) return;
+
+    const medias = [...item.medias];
+    const fromIndex = medias.findIndex(m => m.id === draggedMediaId);
+    if (fromIndex === -1) return;
+
+    const [moved] = medias.splice(fromIndex, 1);
+
+    let toIndex = medias.findIndex(m => m.id === targetMediaId);
+    if (toIndex === -1) return;
+
+    if (!isAbove) {
+      toIndex += 1;
+    }
+
+    medias.splice(toIndex, 0, moved);
+
+    // Instant local UI update
+    item.medias = medias;
+    this.renderSpotlight();
+
+    const orderedIds = medias.map(m => m.id);
+    try {
+      await Api.reorderMedias(itemId, orderedIds);
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+    } catch (err) {
+      window.showToast(err.message, 'error');
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
     }
   },
 

@@ -106,15 +106,25 @@ const AppState = {
 
   setShiftData(data) {
     this.shiftData = data || { shift: null, items: [] };
-    this.currentItemId = data && data.shift ? data.shift.current_item_id : null;
+    const items = this.shiftData.items || [];
+    const itemStillExists = this.currentItemId && items.some(i => i.id === this.currentItemId);
+
+    // Keep locally selected item if it still exists; otherwise fallback to first item or shift default
+    if (!itemStillExists) {
+      if (data && data.shift && data.shift.current_item_id && items.some(i => i.id === data.shift.current_item_id)) {
+        this.currentItemId = data.shift.current_item_id;
+      } else if (items.length > 0) {
+        this.currentItemId = items[0].id;
+      } else {
+        this.currentItemId = null;
+      }
+    }
+
     this.notify('SHIFT_DATA_UPDATED', this.shiftData);
   },
 
   setCurrentItemId(itemId) {
     this.currentItemId = itemId ? Number(itemId) : null;
-    if (this.shiftData && this.shiftData.shift) {
-      this.shiftData.shift.current_item_id = this.currentItemId;
-    }
     this.notify('CURRENT_ITEM_CHANGED', { itemId: this.currentItemId });
   },
 
@@ -129,6 +139,15 @@ const AppState = {
           return;
         }
       }
+    }
+  },
+
+  toggleItemCompleted(itemId, completed) {
+    if (!this.shiftData || !this.shiftData.items) return;
+    const item = this.shiftData.items.find(i => i.id === Number(itemId));
+    if (item) {
+      item.completed = completed ? 1 : 0;
+      this.notify('ITEM_TOGGLED', { itemId: item.id, completed: Boolean(completed) });
     }
   },
 

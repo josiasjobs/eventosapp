@@ -368,6 +368,48 @@ app.put('/api/events/:id/pins', authenticate('admin'), async (req, res) => {
   }
 });
 
+// Backup & Restore Endpoints (Admin only)
+app.get('/api/backup/export', authenticate('admin'), (req, res) => {
+  try {
+    const backup = queries.getFullEventBackup();
+    if (!backup) {
+      return res.status(404).json({ error: 'Nenhum evento ativo encontrado para exportar.' });
+    }
+
+    const safeName = (backup.event.name || 'evento')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '_')
+      .slice(0, 30);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `eventosapp-backup-${safeName}-${dateStr}.json`;
+
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.send(JSON.stringify(backup, null, 2));
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao gerar backup: ' + err.message });
+  }
+});
+
+app.post('/api/backup/restore', authenticate('admin'), (req, res) => {
+  try {
+    const { backupData, keepPins } = req.body;
+    if (!backupData || !backupData.event) {
+      return res.status(400).json({ error: 'Dados do backup inválidos ou não informados.' });
+    }
+
+    const result = queries.restoreEventBackup(backupData, keepPins !== false);
+
+    // Notify all connected clients to reload hierarchy and current shift
+    broadcast('EVENT_UPDATED', { eventId: result.eventId });
+    broadcast('EVENT_SETUP_COMPLETED', { eventId: result.eventId });
+
+    res.json({ success: true, message: 'Evento e dados restaurados com sucesso!' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao restaurar backup: ' + err.message });
+  }
+});
+
 // 11. Days Management (Admin only)
 app.post('/api/days', authenticate('admin'), (req, res) => {
   const { eventId, date, label } = req.body;
@@ -508,6 +550,18 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
   res.json({ success: true, itemId });
 });
 
+app.put('/api/items/reorder', authenticate('admin'), (req, res) => {
+  const { shiftId, orderedIds } = req.body;
+  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
+
+  orderedIds.forEach((id, index) => {
+    queries.updateItemOrder(id, index + 1);
+  });
+
+  broadcast('PROGRAM_UPDATED', { shiftId });
+  res.json({ success: true });
+});
+
 app.put('/api/items/:id', authenticate('admin'), (req, res) => {
   const { title, scheduledTime, description, speaker, activityType } = req.body;
   const item = queries.getItem(req.params.id);
@@ -526,18 +580,6 @@ app.put('/api/items/:id', authenticate('admin'), (req, res) => {
   res.json({ success: true });
 });
 
-app.put('/api/items/reorder', authenticate('admin'), (req, res) => {
-  const { shiftId, orderedIds } = req.body;
-  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
-
-  orderedIds.forEach((id, index) => {
-    queries.updateItemOrder(id, index + 1);
-  });
-
-  broadcast('PROGRAM_UPDATED', { shiftId });
-  res.json({ success: true });
-});
-
 app.delete('/api/items/:id', authenticate('admin'), (req, res) => {
   const item = queries.getItem(req.params.id);
   if (!item) return res.status(404).json({ error: 'Item não encontrado' });
@@ -552,6 +594,23 @@ app.delete('/api/items/:id', authenticate('admin'), (req, res) => {
 
   broadcast('PROGRAM_UPDATED', { shiftId: item.shift_id });
   res.json({ success: true });
+});
+
+// Toggle Item Progress (Allowed by Director or Admin)
+app.post('/api/items/:id/toggle', authenticate(), (req, res) => {
+  const item = queries.getItem(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Item não encontrado' });
+
+  const newStatus = item.completed ? 0 : 1;
+  queries.toggleItemCompleted(item.id, newStatus);
+
+  broadcast('ITEM_TOGGLED', {
+    itemId: item.id,
+    shiftId: item.shift_id,
+    completed: Boolean(newStatus)
+  });
+
+  res.json({ success: true, itemId: item.id, completed: Boolean(newStatus) });
 });
 
 // 16. Medias CRUD, Reordering, and Progress Toggle - RF-07, RF-08
@@ -572,6 +631,19 @@ app.post('/api/medias', authenticate('admin'), (req, res) => {
   res.json({ success: true, mediaId });
 });
 
+app.put('/api/medias/reorder', authenticate('admin'), (req, res) => {
+  const { itemId, orderedIds } = req.body;
+  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
+
+  orderedIds.forEach((id, index) => {
+    queries.updateMediaOrder(id, index + 1);
+  });
+
+  const item = queries.getItem(itemId);
+  broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId });
+  res.json({ success: true });
+});
+
 app.put('/api/medias/:id', authenticate('admin'), (req, res) => {
   const { title, type, reference } = req.body;
   const media = queries.getMedia(req.params.id);
@@ -589,19 +661,6 @@ app.put('/api/medias/:id', authenticate('admin'), (req, res) => {
 
   const item = queries.getItem(media.item_id);
   broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId: media.item_id });
-  res.json({ success: true });
-});
-
-app.put('/api/medias/reorder', authenticate('admin'), (req, res) => {
-  const { itemId, orderedIds } = req.body;
-  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
-
-  orderedIds.forEach((id, index) => {
-    queries.updateMediaOrder(id, index + 1);
-  });
-
-  const item = queries.getItem(itemId);
-  broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId });
   res.json({ success: true });
 });
 
@@ -761,21 +820,17 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
     for (const row of rows) {
       const label = (row.Label || '').trim();
       let type = 'other';
-      let reference = '';
       if (row.mediaPath) {
         const ext = path.extname(row.mediaPath).toLowerCase().replace('.', '');
         if (imageExts.includes(ext)) type = 'image';
         else if (videoExts.includes(ext)) type = 'video';
-        reference = row.mediaPath;
       }
       if (type === 'other' && bibleRegex.test(label)) type = 'bible';
-      let finalName = label || ('Item ' + orderIdx);
-      if ((row.StartTrimOffsetTicks && row.StartTrimOffsetTicks != 0) ||
-          (row.EndTrimOffsetTicks && row.EndTrimOffsetTicks != 0)) {
-        finalName += ' - Editado';
-      }
-      const act = mapEndAction(row.EndAction);
-      if (act) finalName += ' - ' + act;
+
+      // Trazer somente o nome e tipo, deixando a observação em branco
+      const finalName = label || (row.mediaPath ? path.basename(row.mediaPath, path.extname(row.mediaPath)) : ('Item ' + orderIdx));
+      const reference = '';
+
       console.log('[IMPORT] #' + orderIdx + ': "' + finalName + '" tipo=' + type);
       queries.createMedia(Number(itemId), finalName, type, reference, orderIdx);
       orderIdx++;
