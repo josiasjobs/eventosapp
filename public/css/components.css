@@ -254,3 +254,15 @@
 /* Progresso */
 .progress-container { width: 100%; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
 .progress-bar-fill { height: 100%; background: var(--accent); transition: width var(--t); }
+
+/* Seletor de tipo de mídia */
+.type-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.type-btn {
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2); color: var(--text-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  cursor: pointer; transition: background var(--t), color var(--t), border-color var(--t);
+}
+.type-btn[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.type-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

@@ -135,6 +135,7 @@ function setupEventListeners() {
 
   // Day/shift chip -> day & shift drawer
   Modals.initShiftPicker();
+  Modals.initMediaTypePicker();
   const shiftBtn = document.getElementById('btn-shift-picker');
   if (shiftBtn) {
     shiftBtn.addEventListener('click', () => Modals.openShiftPicker());

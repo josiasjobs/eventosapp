@@ -182,17 +182,16 @@ const Modals = {
     form.reset();
 
     if (itemId) {
-      titleEl.textContent = 'Editar Item da Programação';
+      titleEl.textContent = 'Editar parte';
       const item = AppState.shiftData.items.find(i => i.id === Number(itemId));
       if (item) {
         form.itemTitle.value = item.title || '';
         form.itemScheduledTime.value = item.scheduled_time || '';
         form.itemSpeaker.value = item.speaker || '';
-        if (form.itemActivityType) form.itemActivityType.value = item.activity_type || '';
         form.itemDescription.value = item.description || '';
       }
     } else {
-      titleEl.textContent = 'Novo Item na Programação';
+      titleEl.textContent = 'Nova parte';
       // Default scheduled time suggestion based on last item
       const lastItem = AppState.shiftData.items[AppState.shiftData.items.length - 1];
       if (lastItem && lastItem.scheduled_time) {
@@ -203,42 +202,39 @@ const Modals = {
     this.open('modal-item-editor');
   },
 
-  async submitItem(form) {
-    const title = form.itemTitle.value.trim();
-    const scheduledTime = form.itemScheduledTime.value.trim();
-    const speaker = form.itemSpeaker.value.trim();
-    const activityType = form.itemActivityType ? form.itemActivityType.value.trim() : '';
-    const description = form.itemDescription.value.trim();
+  // Pure payload builder; activity_type has no field, so edit sends the original back.
+  buildItemPayload(form, original) {
+    return {
+      title: form.itemTitle.value.trim(),
+      scheduledTime: form.itemScheduledTime.value.trim(),
+      speaker: form.itemSpeaker.value.trim(),
+      activityType: original ? (original.activity_type || '') : '',
+      description: form.itemDescription.value.trim()
+    };
+  },
 
-    if (!title) {
-      window.showToast('Informe o título do item.', 'warning');
+  async submitItem(form) {
+    const original = this.itemEditId
+      ? AppState.shiftData.items.find(i => i.id === Number(this.itemEditId))
+      : null;
+    const payload = this.buildItemPayload(form, original);
+
+    if (!payload.title) {
+      form.itemTitle.focus();
+      window.showToast('Informe o título da parte.', 'warning');
       return;
     }
-    if (!scheduledTime) {
+    if (!payload.scheduledTime) {
+      form.itemScheduledTime.focus();
       window.showToast('Informe o horário previsto.', 'warning');
       return;
     }
 
     try {
       if (this.itemEditId) {
-        await Api.updateItem(this.itemEditId, {
-          title,
-          scheduledTime,
-          speaker,
-          activityType,
-          description
-        });
-        window.showToast('Item atualizado com sucesso!', 'success');
+        await Api.updateItem(this.itemEditId, payload);
       } else {
-        await Api.createItem({
-          shiftId: AppState.selectedShiftId,
-          title,
-          scheduledTime,
-          speaker,
-          activityType,
-          description
-        });
-        window.showToast('Item adicionado à programação!', 'success');
+        await Api.createItem({ shiftId: AppState.selectedShiftId, ...payload });
       }
       this.close('modal-item-editor');
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
@@ -261,20 +257,37 @@ const Modals = {
     form.reset();
 
     if (mediaId) {
-      titleEl.textContent = 'Editar Mídia';
+      titleEl.textContent = 'Editar mídia';
       const item = AppState.shiftData.items.find(i => i.id === Number(itemId));
       const media = item && item.medias ? item.medias.find(m => m.id === Number(mediaId)) : null;
       if (media) {
         form.mediaTitle.value = media.title || '';
-        form.mediaType.value = media.type || 'other';
+        this.setMediaType(form, media.type || 'other');
         form.mediaReference.value = media.reference || '';
       }
     } else {
-      titleEl.textContent = 'Adicionar Nova Mídia';
-      form.mediaType.value = 'bible';
+      titleEl.textContent = 'Nova mídia';
+      this.setMediaType(form, 'bible');
     }
 
     this.open('modal-media-editor');
+  },
+
+  // Selects a type in the picker and mirrors it into the hidden input.
+  setMediaType(form, type) {
+    form.mediaType.value = type;
+    form.querySelectorAll('.type-picker [role="radio"]').forEach(btn => {
+      btn.setAttribute('aria-checked', String(btn.dataset.type === type));
+    });
+  },
+
+  initMediaTypePicker() {
+    const picker = document.querySelector('#form-media .type-picker');
+    if (!picker) return;
+    picker.addEventListener('click', e => {
+      const btn = e.target.closest('[role="radio"]');
+      if (btn) this.setMediaType(btn.closest('form'), btn.dataset.type);
+    });
   },
 
   async submitMedia(form) {
@@ -283,6 +296,7 @@ const Modals = {
     const reference = form.mediaReference.value.trim();
 
     if (!title) {
+      form.mediaTitle.focus();
       window.showToast('Informe o título da mídia.', 'warning');
       return;
     }
@@ -294,7 +308,6 @@ const Modals = {
           type,
           reference
         });
-        window.showToast('Mídia atualizada com sucesso!', 'success');
       } else {
         await Api.createMedia({
           itemId: this.mediaTargetItemId,
@@ -302,7 +315,6 @@ const Modals = {
           type,
           reference
         });
-        window.showToast('Mídia adicionada com sucesso!', 'success');
       }
       this.close('modal-media-editor');
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));

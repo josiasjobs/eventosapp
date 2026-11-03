@@ -194,40 +194,31 @@
   <!-- ============================================== -->
   <div class="modal-backdrop" id="modal-item-editor">
     <div class="modal-dialog">
-      <div class="modal-header">
-        <h2 class="modal-title" id="item-modal-title">Novo Item na Programação</h2>
-        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-item-editor')"
-          aria-label="Fechar">✕</button>
-      </div>
       <form id="form-item" onsubmit="event.preventDefault(); Modals.submitItem(this);">
+        <div class="modal-header">
+          <h2 class="modal-title" id="item-modal-title">Nova parte</h2>
+          <button type="button" class="icon-btn" title="Fechar" aria-label="Fechar" data-icon="x"
+            onclick="Modals.close('modal-item-editor')"></button>
+          <button type="submit" class="icon-btn btn-accent" title="Salvar" aria-label="Salvar"
+            data-icon="check"></button>
+        </div>
         <div class="modal-body">
           <div class="form-group">
-            <label class="form-label" for="item-title">Tema *</label>
-            <input type="text" class="form-input" id="item-title" name="itemTitle"
-              placeholder="Ex: Discurso, Cântico, Oração">
+            <label class="form-label" for="item-title">Título</label>
+            <input type="text" class="form-input" id="item-title" name="itemTitle" required autocomplete="off">
           </div>
-
           <div class="form-group">
-            <label class="form-label" for="item-time">Horário *</label>
+            <label class="form-label" for="item-time">Horário</label>
             <input type="time" class="form-input" id="item-time" name="itemScheduledTime" required>
           </div>
-
           <div class="form-group">
             <label class="form-label" for="item-speaker">Orador</label>
-            <input type="text" class="form-input" id="item-speaker" name="itemSpeaker"
-              placeholder="Ex: Fulano Santos - Cong. Norte">
+            <input type="text" class="form-input" id="item-speaker" name="itemSpeaker" autocomplete="off">
           </div>
-
           <div class="form-group">
             <label class="form-label" for="item-description">Observações</label>
-            <textarea class="form-textarea" id="item-description" name="itemDescription" rows="3"
-              placeholder="Ex: Discurso com Vídeo"></textarea>
+            <textarea class="form-textarea" id="item-description" name="itemDescription" rows="3"></textarea>
           </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-ghost" onclick="Modals.close('modal-item-editor')">Cancelar</button>
-          <button type="submit" class="btn btn-primary" id="btn-save-item">Salvar Item</button>
         </div>
       </form>
     </div>
@@ -238,41 +229,34 @@
   <!-- ============================================== -->
   <div class="modal-backdrop" id="modal-media-editor">
     <div class="modal-dialog">
-      <div class="modal-header">
-        <h2 class="modal-title" id="media-modal-title">Adicionar Nova Mídia</h2>
-        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-media-editor')"
-          aria-label="Fechar">✕</button>
-      </div>
       <form id="form-media" onsubmit="event.preventDefault(); Modals.submitMedia(this);">
+        <div class="modal-header">
+          <h2 class="modal-title" id="media-modal-title">Nova mídia</h2>
+          <button type="button" class="icon-btn" title="Fechar" aria-label="Fechar" data-icon="x"
+            onclick="Modals.close('modal-media-editor')"></button>
+          <button type="submit" class="icon-btn btn-accent" title="Salvar" aria-label="Salvar"
+            data-icon="check"></button>
+        </div>
         <div class="modal-body">
           <div class="form-group">
-            <label class="form-label" for="media-type">Tipo de Mídia *</label>
-            <select class="form-select" id="media-type" name="mediaType">
-              <option value="bible">📖 Bíblia</option>
-              <option value="video">🎬 Vídeo</option>
-              <option value="image">🖼️ Imagem</option>
-              <option value="interview">🎙️ Entrevista</option>
-              <option value="theater">🎭 Teatro</option>
-              <option value="other">📁 Outro Conteúdo</option>
-            </select>
+            <div class="type-picker" role="radiogroup" aria-label="Tipo de mídia">
+              <button type="button" class="type-btn" role="radio" data-type="bible" aria-checked="true" title="Bíblia" aria-label="Bíblia" data-icon="book"></button>
+              <button type="button" class="type-btn" role="radio" data-type="video" aria-checked="false" title="Vídeo" aria-label="Vídeo" data-icon="video"></button>
+              <button type="button" class="type-btn" role="radio" data-type="image" aria-checked="false" title="Imagem" aria-label="Imagem" data-icon="image"></button>
+              <button type="button" class="type-btn" role="radio" data-type="interview" aria-checked="false" title="Entrevista" aria-label="Entrevista" data-icon="mic"></button>
+              <button type="button" class="type-btn" role="radio" data-type="theater" aria-checked="false" title="Teatro" aria-label="Teatro" data-icon="drama"></button>
+              <button type="button" class="type-btn" role="radio" data-type="other" aria-checked="false" title="Outro" aria-label="Outro" data-icon="file"></button>
+            </div>
+            <input type="hidden" name="mediaType" value="bible">
           </div>
-
           <div class="form-group">
-            <label class="form-label" for="media-title">Identificação da Mídia *</label>
-            <input type="text" class="form-input" id="media-title" name="mediaTitle" placeholder="Ex: Romanos 8:28..."
-              required>
+            <label class="form-label" for="media-title">Título</label>
+            <input type="text" class="form-input" id="media-title" name="mediaTitle" required autocomplete="off">
           </div>
-
           <div class="form-group">
             <label class="form-label" for="media-ref">Observações</label>
-            <input type="text" class="form-input" id="media-ref" name="mediaReference"
-              placeholder="Ex: Editado, Com Audio, ...">
+            <input type="text" class="form-input" id="media-ref" name="mediaReference" autocomplete="off">
           </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-ghost" onclick="Modals.close('modal-media-editor')">Cancelar</button>
-          <button type="submit" class="btn btn-primary" id="btn-save-media">Salvar Mídia</button>
         </div>
       </form>
     </div>
