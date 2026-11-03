@@ -162,10 +162,10 @@ app.post('/api/setup', async (req, res) => {
       return res.status(400).json({ error: 'O nome do evento é obrigatório.' });
     }
     if (!isValidPin(directorPin)) {
-      return res.status(400).json({ error: 'O PIN do Diretor deve ter de 4 a 8 dígitos numéricos.' });
+      return res.status(400).json({ error: 'O PIN do Diretor deve ter 4 dígitos.' });
     }
     if (!isValidPin(adminPin)) {
-      return res.status(400).json({ error: 'O PIN de Edição/Admin deve ter de 4 a 8 dígitos numéricos.' });
+      return res.status(400).json({ error: 'O PIN de Administrador deve ter 4 dígitos.' });
     }
 
     const dirHash = await hashPin(directorPin);
@@ -353,11 +353,11 @@ app.put('/api/events/:id/pins', authenticate('admin'), async (req, res) => {
     let admHash = null;
 
     if (directorPin) {
-      if (!isValidPin(directorPin)) return res.status(400).json({ error: 'O PIN do Diretor deve ter de 4 a 8 dígitos.' });
+      if (!isValidPin(directorPin)) return res.status(400).json({ error: 'O PIN do Diretor deve ter 4 dígitos.' });
       dirHash = await hashPin(directorPin);
     }
     if (adminPin) {
-      if (!isValidPin(adminPin)) return res.status(400).json({ error: 'O PIN de Administrador deve ter de 4 a 8 dígitos.' });
+      if (!isValidPin(adminPin)) return res.status(400).json({ error: 'O PIN de Administrador deve ter 4 dígitos.' });
       admHash = await hashPin(adminPin);
     }
 
