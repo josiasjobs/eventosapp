@@ -119,15 +119,12 @@ const AppState = {
     const items = this.shiftData.items || [];
     const itemStillExists = this.currentItemId && items.some(i => i.id === this.currentItemId);
 
-    // Keep locally selected item if it still exists; otherwise fallback to first item or shift default
+    // Keep locally selected item if it still exists; otherwise this device's last part for the shift,
+    // then the shift default, then the first part
     if (!itemStillExists) {
-      if (data && data.shift && data.shift.current_item_id && items.some(i => i.id === data.shift.current_item_id)) {
-        this.currentItemId = data.shift.current_item_id;
-      } else if (items.length > 0) {
-        this.currentItemId = items[0].id;
-      } else {
-        this.currentItemId = null;
-      }
+      const shiftId = data && data.shift ? data.shift.id : this.selectedShiftId;
+      const serverItemId = data && data.shift ? data.shift.current_item_id : null;
+      this.currentItemId = Logic.pickInitialItem(items, this._savedItemIds()[shiftId] ?? null, serverItemId);
     }
 
     this.notify('SHIFT_DATA_UPDATED', this.shiftData);
@@ -135,7 +132,24 @@ const AppState = {
 
   setCurrentItemId(itemId) {
     this.currentItemId = itemId ? Number(itemId) : null;
+    if (this.selectedShiftId && this.currentItemId) {
+      const saved = this._savedItemIds();
+      saved[this.selectedShiftId] = this.currentItemId;
+      try {
+        localStorage.setItem('eventos_item_ids', JSON.stringify(saved));
+      } catch (e) { /* storage unavailable */ }
+    }
     this.notify('CURRENT_ITEM_CHANGED', { itemId: this.currentItemId });
+  },
+
+  // Last selected part per shift on this device: { [shiftId]: itemId }
+  _savedItemIds() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('eventos_item_ids') || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
   },
 
   toggleMediaCompleted(mediaId, completed) {

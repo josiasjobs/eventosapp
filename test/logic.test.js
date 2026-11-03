@@ -128,3 +128,18 @@ test('localDateISO usa a data local (não UTC)', () => {
   assert.equal(L.localDateISO(new Date(2026, 0, 5, 23, 30)), '2026-01-05');
   assert.equal(L.localDateISO(new Date(2026, 10, 3, 0, 5)), '2026-11-03');
 });
+
+const parts = [{ id: 7 }, { id: 8 }, { id: 9 }];
+test('pickInitialItem usa a parte salva no aparelho quando ela existe', () => {
+  assert.equal(L.pickInitialItem(parts, 9, 8), 9);
+});
+test('pickInitialItem cai na parte atual do servidor se a salva sumiu', () => {
+  assert.equal(L.pickInitialItem(parts, 99, 8), 8);
+});
+test('pickInitialItem cai na primeira parte sem salva nem do servidor', () => {
+  assert.equal(L.pickInitialItem(parts, null, null), 7);
+  assert.equal(L.pickInitialItem(parts, null, 99), 7);
+});
+test('pickInitialItem sem partes retorna null', () => {
+  assert.equal(L.pickInitialItem([], 9, 8), null);
+});

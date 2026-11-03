@@ -90,5 +90,13 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
-  return { localDateISO, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
+  // Part to open when a shift loads: this device's last part, then the server's current part, then the first
+  function pickInitialItem(items, savedItemId, serverItemId) {
+    const has = (id) => id != null && items.some(i => i.id === id);
+    if (has(savedItemId)) return savedItemId;
+    if (has(serverItemId)) return serverItemId;
+    return items.length > 0 ? items[0].id : null;
+  }
+
+  return { localDateISO, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
 });
