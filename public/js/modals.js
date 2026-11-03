@@ -343,7 +343,7 @@ const Modals = {
       if (day.shifts && day.shifts.length > 0) {
         day.shifts.forEach(shift => {
           html += `
-            <div class="entity-management-row" style="margin-left: 20px; border-left: 3px solid var(--accent-primary);">
+            <div class="entity-management-row" style="margin-left: 20px; border-left: 3px solid var(--accent);">
               <div class="entity-info">
                 <span class="entity-title">Turno: ${shift.name}</span>
                 <span class="entity-subtitle">${shift.start_time || '--:--'} às ${shift.end_time || '--:--'}</span>

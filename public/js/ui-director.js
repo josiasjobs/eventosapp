@@ -44,10 +44,10 @@ const UIDirector = {
             <span class="badge badge-warning">Aguardando Início</span>
           </div>
           <div class="spotlight-content">
-            <h2 class="spotlight-title" style="font-size: 1.5rem; color: var(--text-muted);">
+            <h2 class="spotlight-title" style="font-size: 1.5rem; color: var(--text-2);">
               ${items.length === 0 ? 'Nenhuma midia cadastrada.' : 'Nenhum item em execução no momento.'}
             </h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+            <p style="color: var(--text-2); margin-bottom: 20px;">
               ${items.length === 0 ? 'Ative o Modo Edição para adicionar itens à programação.' : 'Selecione uma parte no programa ao lado para colocá-lo Em Execução.'}
             </p>
             ${AppState.mode === 'editor' && items.length === 0 ? `
@@ -66,7 +66,7 @@ const UIDirector = {
     let mediasHtml = '';
     if (medias.length === 0) {
       mediasHtml = `
-        <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+        <div style="padding: 16px; text-align: center; color: var(--text-2); font-size: 0.9rem;">
           Nenhuma mídia vinculada a este item.
         </div>
       `;
@@ -306,7 +306,7 @@ ${AppState.mode === 'editor' ? `<button class="btn btn-sm btn-primary import-btn
               </svg>
               <span>Programa</span>
             </h3>
-            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+            <span style="font-size: 0.8rem; color: var(--text-2); font-weight: 600;">
               ${items.length} ${items.length === 1 ? 'item' : 'itens'}
             </span>
           </div>

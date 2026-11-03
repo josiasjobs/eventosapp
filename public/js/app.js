@@ -281,7 +281,7 @@ function setupEventListeners() {
         mobileSyncText.textContent = `LAN: ${label}`;
       }
       if (mobileSyncDot) {
-        mobileSyncDot.style.backgroundColor = payload.state === 'online' ? 'var(--color-live)' : (payload.state === 'reconnecting' ? 'var(--color-warning)' : 'var(--color-danger)');
+        mobileSyncDot.style.backgroundColor = payload.state === 'online' ? 'var(--done)' : (payload.state === 'reconnecting' ? 'var(--accent)' : 'var(--danger)');
       }
     } else if (eventType === 'CURRENT_ITEM_CHANGED' || eventType === 'MEDIA_TOGGLED' || eventType === 'ITEM_TOGGLED') {
       UIDirector.render();
