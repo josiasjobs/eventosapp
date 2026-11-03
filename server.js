@@ -15,6 +15,21 @@ const util = require('util');
 
 const { queries } = require('./db');
 const { playlistMediaTitle } = require('./playlist-title');
+const { parseTalkNumber } = require('./public/js/logic.js');
+
+// Validates the talk number (Discurso) of a part: { talkNumber } or { status, error }.
+// The number is optional, must be a positive integer and is unique across the event.
+function checkTalkNumber(raw, shiftId, itemId = null) {
+  const talkNumber = parseTalkNumber(raw);
+  if (talkNumber === false) {
+    return { status: 400, error: 'O número do discurso deve ser um número inteiro maior que zero.' };
+  }
+  if (talkNumber !== null) {
+    const other = queries.findItemWithTalkNumber(shiftId, talkNumber, itemId);
+    if (other) return { status: 409, error: `O discurso nº ${talkNumber} já está na parte "${other.title}".` };
+  }
+  return { talkNumber };
+}
 const {
   hashPin,
   comparePin,
@@ -527,6 +542,8 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
   const { shiftId, title, scheduledTime, description, speaker, activityType } = req.body;
   if (!title || !title.trim()) return res.status(400).json({ error: 'Título do item é obrigatório.' });
   if (!scheduledTime) return res.status(400).json({ error: 'Horário previsto é obrigatório.' });
+  const talk = checkTalkNumber(req.body.talkNumber, shiftId);
+  if (talk.error) return res.status(talk.status).json({ error: talk.error });
 
   const currentItems = queries.getItemsByShift(shiftId);
   const nextOrder = currentItems.length + 1;
@@ -538,7 +555,8 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
     description ? description.trim() : '',
     speaker ? speaker.trim() : '',
     activityType ? activityType.trim() : '',
-    nextOrder
+    nextOrder,
+    talk.talkNumber
   );
 
   // If shift had no current item, automatically set this first item
@@ -567,6 +585,11 @@ app.put('/api/items/:id', authenticate('admin'), (req, res) => {
   const { title, scheduledTime, description, speaker, activityType } = req.body;
   const item = queries.getItem(req.params.id);
   if (!item) return res.status(404).json({ error: 'Item não encontrado' });
+  // talkNumber absent keeps the current one; '' or null clears it
+  const talk = req.body.talkNumber !== undefined
+    ? checkTalkNumber(req.body.talkNumber, item.shift_id, item.id)
+    : { talkNumber: item.talk_number };
+  if (talk.error) return res.status(talk.status).json({ error: talk.error });
 
   queries.updateItem(
     item.id,
@@ -574,7 +597,8 @@ app.put('/api/items/:id', authenticate('admin'), (req, res) => {
     scheduledTime ? scheduledTime.trim() : item.scheduled_time,
     description !== undefined ? description.trim() : item.description,
     speaker !== undefined ? speaker.trim() : item.speaker,
-    activityType !== undefined ? activityType.trim() : item.activity_type
+    activityType !== undefined ? activityType.trim() : item.activity_type,
+    talk.talkNumber
   );
 
   broadcast('PROGRAM_UPDATED', { shiftId: item.shift_id });

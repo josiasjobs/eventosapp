@@ -98,3 +98,13 @@ test('roteiro não mostra o nome interno de arquivo de importações antigas', (
     medias: [{ type: 'image', title: 'FOTO-01.jpg', reference: '95c33726-1d91-4df6-9f0e-517cb885724f.jpg' }] }] });
   assert.doesNotMatch(html, /95c33726/);
 });
+
+test('roteiro mostra o número do discurso e não a sequência das partes', () => {
+  const html = buildProgramHtml({ ...data, items: [
+    { scheduled_time: '09:00', title: 'Abertura', speaker: '', description: '', medias: [] },
+    { scheduled_time: '09:20', title: 'Discurso A', speaker: '', description: '', talk_number: 12, medias: [] }
+  ] });
+  assert.match(html, /Nº 12/);
+  assert.doesNotMatch(html, /class="num">\s*1\s*</);
+  assert.doesNotMatch(html, /class="num">\s*2\s*</);
+});

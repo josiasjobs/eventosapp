@@ -156,3 +156,15 @@ test('mediaNotes mantém observações escritas no app', () => {
   assert.equal(L.mediaNotes(''), '');
   assert.equal(L.mediaNotes(null), '');
 });
+
+test('parseTalkNumber: vazio significa "não é discurso"', () => {
+  for (const v of [null, undefined, '', '  ']) assert.equal(L.parseTalkNumber(v), null);
+});
+test('parseTalkNumber: inteiro positivo vale', () => {
+  assert.equal(L.parseTalkNumber('5'), 5);
+  assert.equal(L.parseTalkNumber(12), 12);
+  assert.equal(L.parseTalkNumber(' 7 '), 7);
+});
+test('parseTalkNumber: zero, negativo, decimal e texto são inválidos', () => {
+  for (const v of ['0', 0, '-3', '2.5', 2.5, 'abc', '5a', '1e3']) assert.equal(L.parseTalkNumber(v), false, String(v));
+});

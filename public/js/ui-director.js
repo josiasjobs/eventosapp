@@ -47,6 +47,11 @@ const UIDirector = {
     labelEl.textContent = day && shift ? `${day.label} · ${shift.name}` : 'Sem turno';
   },
 
+  // "Nº 12" before the title of a talk part
+  talkBadgeHtml(item) {
+    return item.talk_number ? `<span class="talk-badge">Nº ${uiEsc(item.talk_number)}</span>` : '';
+  },
+
   // Empty state: icon + short sentence (adding is done with the floating + in edit mode)
   emptyStateHtml(iconName, text) {
     return `
@@ -98,7 +103,7 @@ const UIDirector = {
     spotlightContainer.innerHTML = `
       <article class="current-part" data-item-id="${itemId}">
         <div class="current-head">
-          <h1 class="current-title" id="current-item-title">${uiEsc(currentItem.title)}</h1>
+          <h1 class="current-title" id="current-item-title">${this.talkBadgeHtml(currentItem)}${uiEsc(currentItem.title)}</h1>
           <button type="button" class="dot dot-lg is-${status}" data-action="toggle-item" data-item-id="${itemId}"
                   title="${status === 'done' ? 'Marcar parte como pendente' : 'Marcar parte como concluída'}"
                   aria-label="${status === 'done' ? 'Marcar parte como pendente' : 'Marcar parte como concluída'}"
@@ -137,7 +142,7 @@ const UIDirector = {
         <div class="row part-row${isCurrent ? ' is-current' : ''}${status === 'done' ? ' is-done' : ''}"
              data-item-id="${id}" role="button" tabindex="0"${isCurrent ? ' aria-current="true"' : ''}>
           <span class="part-time tnum">${uiEsc(item.scheduled_time)}</span>
-          <span class="part-title">${uiEsc(item.title)}</span>
+          <span class="part-title">${this.talkBadgeHtml(item)}${uiEsc(item.title)}</span>
           ${uiIconButton('more', 'Ações da parte', 'data-action="item-menu" aria-haspopup="menu" aria-expanded="false"', 'more-btn edit-only')}
           <button type="button" class="dot is-${status}" data-action="toggle-item"
                   title="${label}" aria-label="${label}" aria-pressed="${status === 'done'}"></button>

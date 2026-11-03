@@ -106,5 +106,15 @@
     return IMPORTED_FILE_REF.test(text) ? '' : text;
   }
 
-  return { localDateISO, mediaNotes, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
+  // Talk number of a part: null when the part is not a talk (empty), a positive integer,
+  // or false when the value is invalid (zero, negative, decimal, text).
+  function parseTalkNumber(value) {
+    const text = value == null ? '' : String(value).trim();
+    if (text === '') return null;
+    if (!/^\d+$/.test(text)) return false;
+    const n = Number(text);
+    return n >= 1 && Number.isSafeInteger(n) ? n : false;
+  }
+
+  return { localDateISO, mediaNotes, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
 });

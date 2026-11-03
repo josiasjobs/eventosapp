@@ -89,6 +89,12 @@
 
 /* Formularios */
 .form-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+
+/* Parte: "Discurso" + número */
+.talk-group { flex-direction: row; align-items: center; gap: 12px; }
+.check-label { display: inline-flex; align-items: center; gap: 10px; min-height: var(--tap); cursor: pointer; font-weight: 600; }
+.check-label input { width: 22px; height: 22px; accent-color: var(--accent); }
+.talk-number { width: 7em; }
 .form-label { font-size: var(--fs-small); color: var(--text-2); font-weight: 600; }
 .form-input, .form-textarea {
   width: 100%;

@@ -43,12 +43,12 @@
         </li>`;
     };
 
-    const partHtml = (item, index) => {
+    const partHtml = (item) => {
       const medias = item.medias || [];
       return `
         <section class="part">
           <div class="part-head">
-            <span class="num">${index + 1}</span>
+            ${item.talk_number ? `<span class="num">Nº ${esc(item.talk_number)}</span>` : ''}
             <span class="time">${esc(item.scheduled_time)}</span>
             <span class="part-title">${esc(item.title)}</span>
           </div>
@@ -90,7 +90,8 @@
   .part { break-inside: avoid; page-break-inside: avoid; margin-bottom: 10px;
     border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius); }
   .part-head { display: flex; gap: 10px; align-items: baseline; padding: 6px 10px; background: var(--surface); }
-  .num { color: var(--text-2); font-weight: 600; min-width: 1.4em; }
+  .num { padding: 0 6px; border: 1px solid var(--text); border-radius: var(--radius); font-weight: 700;
+    font-size: 9.5pt; white-space: nowrap; }
   .time { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
   .part-title { font-weight: 700; font-size: 11.5pt; }
   .meta { display: flex; align-items: center; gap: 6px; padding: 4px 10px 0; font-size: 9.5pt; color: var(--text-2); }

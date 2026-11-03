@@ -137,6 +137,20 @@ body.mode-editor .topbar { box-shadow: 0 2px 0 var(--accent); }
 }
 .part-row.is-done .part-title { text-decoration: line-through; color: var(--text-2); }
 
+/* "Nº 12" before the title of a talk part */
+.talk-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  vertical-align: 0.1em;
+}
+
 /* Bolinha de status como botao: area de toque de 44px pelo ::before */
 button.dot {
   appearance: none;

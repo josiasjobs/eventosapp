@@ -212,6 +212,8 @@ const Modals = {
         form.itemScheduledTime.value = item.scheduled_time || '';
         form.itemSpeaker.value = item.speaker || '';
         form.itemDescription.value = item.description || '';
+        form.itemIsTalk.checked = !!item.talk_number;
+        form.itemTalkNumber.value = item.talk_number || '';
       }
     } else {
       titleEl.textContent = 'Nova parte';
@@ -222,7 +224,24 @@ const Modals = {
       }
     }
 
+    this.syncTalkField(form);
     this.open('modal-item-editor');
+  },
+
+  // "Discurso" checkbox shows the talk number field (and requires it)
+  syncTalkField(form) {
+    const isTalk = form.itemIsTalk.checked;
+    form.itemTalkNumber.hidden = !isTalk;
+    form.itemTalkNumber.required = isTalk;
+  },
+
+  initTalkField() {
+    const form = document.getElementById('form-item');
+    if (!form) return;
+    form.itemIsTalk.addEventListener('change', () => {
+      this.syncTalkField(form);
+      if (form.itemIsTalk.checked) form.itemTalkNumber.focus();
+    });
   },
 
   // Pure payload builder; activity_type has no field, so edit sends the original back.
@@ -232,7 +251,9 @@ const Modals = {
       scheduledTime: form.itemScheduledTime.value.trim(),
       speaker: form.itemSpeaker.value.trim(),
       activityType: original ? (original.activity_type || '') : '',
-      description: form.itemDescription.value.trim()
+      description: form.itemDescription.value.trim(),
+      // '' clears the number when "Discurso" is unchecked
+      talkNumber: form.itemIsTalk.checked ? form.itemTalkNumber.value.trim() : ''
     };
   },
 
@@ -250,6 +271,11 @@ const Modals = {
     if (!payload.scheduledTime) {
       form.itemScheduledTime.focus();
       window.showToast('Informe o horário previsto.', 'warning');
+      return;
+    }
+    if (form.itemIsTalk.checked && !Logic.parseTalkNumber(payload.talkNumber)) {
+      form.itemTalkNumber.focus();
+      window.showToast('Informe o número do discurso (inteiro maior que zero).', 'warning');
       return;
     }
 

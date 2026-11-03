@@ -106,6 +106,12 @@ function initSchema() {
   } catch (e) {
     // Column already exists
   }
+  try {
+    // Talk number (Discurso): NULL when the part is not a talk; unique per event (checked in server.js)
+    db.prepare('ALTER TABLE items ADD COLUMN talk_number INTEGER').run();
+  } catch (e) {
+    // Column already exists
+  }
 }
 
 initSchema();
@@ -203,20 +209,32 @@ const queries = {
     return db.prepare('SELECT * FROM items WHERE id = ?').get(id);
   },
 
-  createItem(shiftId, title, scheduledTime, description, speaker, activityType, orderNum) {
+  createItem(shiftId, title, scheduledTime, description, speaker, activityType, orderNum, talkNumber = null) {
     const res = db.prepare(`
-      INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(shiftId, title, scheduledTime, description || '', speaker || '', activityType || '', orderNum);
+      INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, talk_number)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(shiftId, title, scheduledTime, description || '', speaker || '', activityType || '', orderNum, talkNumber);
     return res.lastInsertRowid;
   },
 
-  updateItem(id, title, scheduledTime, description, speaker, activityType) {
+  updateItem(id, title, scheduledTime, description, speaker, activityType, talkNumber = null) {
     return db.prepare(`
       UPDATE items
-      SET title = ?, scheduled_time = ?, description = ?, speaker = ?, activity_type = ?, updated_at = datetime('now', 'localtime')
+      SET title = ?, scheduled_time = ?, description = ?, speaker = ?, activity_type = ?, talk_number = ?,
+          updated_at = datetime('now', 'localtime')
       WHERE id = ?
-    `).run(title, scheduledTime, description || '', speaker || '', activityType || '', id);
+    `).run(title, scheduledTime, description || '', speaker || '', activityType || '', talkNumber, id);
+  },
+
+  // Another part of the same event (the shift's event) that already uses this talk number
+  findItemWithTalkNumber(shiftId, talkNumber, excludeItemId = null) {
+    return db.prepare(`
+      SELECT i.id, i.title FROM items i
+      JOIN shifts s ON s.id = i.shift_id
+      JOIN days d ON d.id = s.day_id
+      WHERE i.talk_number = ? AND i.id IS NOT ?
+        AND d.event_id = (SELECT d2.event_id FROM shifts s2 JOIN days d2 ON d2.id = s2.day_id WHERE s2.id = ?)
+    `).get(talkNumber, excludeItemId, shiftId);
   },
 
   updateItemOrder(id, orderNum) {
@@ -376,6 +394,7 @@ const queries = {
             description: item.description || '',
             speaker: item.speaker || '',
             activity_type: item.activity_type || '',
+            talk_number: item.talk_number ?? null,
             order_num: item.order_num,
             completed: item.completed ? 1 : 0,
             medias: []
@@ -463,8 +482,8 @@ const queries = {
           const items = Array.isArray(shift.items) ? shift.items : [];
           for (const item of items) {
             const itemRes = db.prepare(`
-              INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, completed)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, completed, talk_number)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
               newShiftId,
               item.title || '',
@@ -473,7 +492,8 @@ const queries = {
               item.speaker || '',
               item.activity_type || '',
               item.order_num || 1,
-              item.completed ? 1 : 0
+              item.completed ? 1 : 0,
+              item.talk_number ?? null
             );
             const newItemId = itemRes.lastInsertRowid;
 
