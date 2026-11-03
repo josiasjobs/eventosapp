@@ -175,10 +175,16 @@ const UIDirector = {
         </div>
       `;
 
+    // Scroll only when the shift or the current part changes, so re-renders
+    // (media/part toggles, WS updates) never pull a scrolled list back.
+    const scrollKey = `${AppState.selectedShiftId}:${currentItemId}`;
+    const shouldScroll = scrollKey !== this._lastScrollKey;
+    this._lastScrollKey = scrollKey;
+
     [timelineContainer, modalTimelineContainer].forEach(container => {
       if (!container) return;
       container.innerHTML = listHtml;
-      this.scrollToCurrent(container);
+      if (shouldScroll) this.scrollToCurrent(container);
     });
   },
 
