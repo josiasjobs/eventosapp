@@ -27,8 +27,8 @@ const Api = {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        // PIN rejections (/api/auth/*) are handled by the PIN keypad itself
-        if (response.status === 401 && !endpoint.startsWith('/api/auth/')) {
+        // Login and upgrade 401s are handled by the PIN keypad (upgrade re-checks the session via verify)
+        if (response.status === 401 && endpoint !== '/api/auth/login' && endpoint !== '/api/auth/upgrade') {
           // Token expired or invalid
           AppState.setAuth(null, null);
           window.dispatchEvent(new CustomEvent('auth-required'));
@@ -83,6 +83,8 @@ const Api = {
   async logout() {
     try {
       await this.request('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      // Local logout always completes, even if the server is unreachable
     } finally {
       AppState.setAuth(null, null);
       AppState.setMode('director');

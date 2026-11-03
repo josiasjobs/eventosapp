@@ -122,6 +122,15 @@ const Modals = {
       this.updatePinDots();
       const errorEl = document.getElementById('pin-error-msg');
       if (err.status === 401) {
+        // The server answers 401 both for a wrong admin PIN and for a dead session, so ask it
+        if (this.pinContext === 'upgrade') {
+          try {
+            await Api.verifySession();
+          } catch (verifyErr) {
+            // Session invalid: Api.request already cleared auth and fired auth-required (login keypad)
+            return;
+          }
+        }
         this.shakePinDots();
       } else if (err.status === 429) {
         if (errorEl) errorEl.textContent = `Aguarde ${err.remainingSeconds}s`;
