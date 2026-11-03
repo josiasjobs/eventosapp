@@ -4,15 +4,15 @@
  */
 
 // Toast notification helper
-window.showToast = function(message, type = 'info', duration = 3500) {
+window.showToast = function(message, type = 'info', duration = 2000) {
   const container = document.getElementById('toast-container');
   if (!container) return;
 
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.innerHTML = `
-    <span>${message}</span>
-  `;
+  const text = document.createElement('span');
+  text.textContent = message;
+  toast.appendChild(text);
 
   container.appendChild(toast);
 
@@ -153,7 +153,7 @@ function setupEventListeners() {
     settingsBtn.addEventListener('click', () => Modals.openSettingsModal());
   }
 
-  // Logout (inside the LAN modal for now)
+  // Logout (connection sheet footer)
   const logoutBtn = document.getElementById('btn-logout');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => Api.logout());
@@ -258,9 +258,7 @@ function setupGlobalShortcuts() {
         Modals.handlePinDigit(e.key);
       } else if (e.key === 'Backspace') {
         Modals.handlePinBackspace();
-      } else if (e.key === 'Enter') {
-        Modals.submitPin();
-      } else if (e.key === 'Escape') {
+      } else if (e.key === 'Escape' && Modals.pinContext === 'upgrade') {
         Modals.close('modal-pin-auth');
       }
       return;
@@ -287,19 +285,6 @@ function setupGlobalShortcuts() {
     }
   });
 }
-
-// Tab navigation inside modals
-function switchModalTab(tabId, btn) {
-  const modal = btn.closest('.modal-dialog');
-  if (!modal) return;
-  modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  modal.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  const targetPane = document.getElementById(tabId);
-  if (targetPane) targetPane.classList.add('active');
-}
-
-window.switchModalTab = switchModalTab;
 
 // Start on DOM ready
 document.addEventListener('DOMContentLoaded', initApp);

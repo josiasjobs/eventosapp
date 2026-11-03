@@ -44,40 +44,46 @@ const Modals = {
   pinContext: 'login', // 'login' | 'upgrade'
   currentPinValue: '',
 
+  pinBusy: false,
+  PIN_LENGTH: 4,
+
   openPinModal(context = 'login') {
     this.pinContext = context;
     this.currentPinValue = '';
+    this.pinBusy = false;
     this.updatePinDots();
+    this.clearPinError();
 
-    const titleEl = document.getElementById('pin-modal-title');
-    const descEl = document.getElementById('pin-modal-desc');
-
-    if (context === 'upgrade') {
-      titleEl.textContent = 'Acesso ao Modo Edição';
-      descEl.textContent = 'Digite o PIN de Administrador (4 a 8 dígitos) para liberar ferramentas de edição.';
-    } else {
-      titleEl.textContent = 'Acesso ao EventosAPP';
-      descEl.textContent = 'Digite o PIN de Diretor ou de Administrador para acessar a aplicação.';
-    }
-
-    const errorEl = document.getElementById('pin-error-msg');
-    if (errorEl) errorEl.textContent = '';
+    // Login is mandatory; only the edit-mode upgrade can be dismissed
+    const closeBtn = document.getElementById('pin-close');
+    if (closeBtn) closeBtn.hidden = context !== 'upgrade';
 
     this.open('modal-pin-auth');
   },
 
+  clearPinError() {
+    const errorEl = document.getElementById('pin-error-msg');
+    if (errorEl) errorEl.textContent = '';
+    const dots = document.getElementById('pin-dots');
+    if (dots) dots.classList.remove('is-error');
+  },
+
   handlePinDigit(digit) {
-    if (this.currentPinValue.length >= 8) return;
+    if (this.pinBusy || this.currentPinValue.length >= this.PIN_LENGTH) return;
+    this.clearPinError();
     this.currentPinValue += digit;
     this.updatePinDots();
+    if (this.currentPinValue.length === this.PIN_LENGTH) this.submitPin();
   },
 
   handlePinBackspace() {
+    if (this.pinBusy) return;
     this.currentPinValue = this.currentPinValue.slice(0, -1);
     this.updatePinDots();
   },
 
   handlePinClear() {
+    if (this.pinBusy) return;
     this.currentPinValue = '';
     this.updatePinDots();
   },
@@ -93,77 +99,85 @@ const Modals = {
   },
 
   async submitPin() {
-    const errorEl = document.getElementById('pin-error-msg');
-    if (this.currentPinValue.length < 4) {
-      if (errorEl) errorEl.textContent = 'O PIN deve conter pelo menos 4 dígitos.';
-      return;
-    }
+    if (this.pinBusy || this.currentPinValue.length !== this.PIN_LENGTH) return;
+    this.pinBusy = true;
+    const pin = this.currentPinValue;
 
     try {
-      if (errorEl) errorEl.textContent = 'Validando PIN...';
-
       if (this.pinContext === 'upgrade') {
-        const res = await Api.upgradeSession(this.currentPinValue);
+        const res = await Api.upgradeSession(pin);
         AppState.setAuth(res.token, res.role);
         AppState.setMode('editor');
         this.close('modal-pin-auth');
-        window.showToast('Modo Edição ativado com sucesso!', 'success');
       } else {
-        const res = await Api.login(this.currentPinValue);
+        const res = await Api.login(pin);
         AppState.setAuth(res.token, res.role);
         this.close('modal-pin-auth');
-        window.showToast(`Bem-vindo ao ${res.eventName || 'Evento'}!`, 'success');
         window.dispatchEvent(new CustomEvent('init-app-data'));
       }
-    } catch (err) {
-      if (errorEl) errorEl.textContent = err.message || 'PIN incorreto. Tente novamente.';
       this.currentPinValue = '';
       this.updatePinDots();
+    } catch (err) {
+      this.currentPinValue = '';
+      this.updatePinDots();
+      const errorEl = document.getElementById('pin-error-msg');
+      if (err.status === 401) {
+        this.shakePinDots();
+      } else if (err.status === 429) {
+        if (errorEl) errorEl.textContent = `Aguarde ${err.remainingSeconds}s`;
+      } else {
+        window.showToast(err.message || 'Não foi possível validar o PIN.', 'error');
+      }
+    } finally {
+      this.pinBusy = false;
     }
+  },
+
+  // Red + shaking dots for 400 ms
+  shakePinDots() {
+    const dots = document.getElementById('pin-dots');
+    if (!dots) return;
+    dots.classList.remove('is-error');
+    void dots.offsetWidth; // restart the animation
+    dots.classList.add('is-error');
+    setTimeout(() => dots.classList.remove('is-error'), 400);
   },
 
   // ==========================================
   // INITIAL SETUP MODAL (RF-01)
   // ==========================================
   async submitSetup(form) {
-    const eventName = form.eventName.value;
-    const category = form.category.value;
-    const firstDayLabel = form.firstDayLabel.value;
-    const firstDayDate = form.firstDayDate.value;
-    const firstShiftName = form.firstShiftName.value;
+    const eventName = form.eventName.value.trim();
     const directorPin = form.directorPin.value;
     const adminPin = form.adminPin.value;
 
     const errorEl = document.getElementById('setup-error-msg');
     errorEl.textContent = '';
 
-    if (!eventName.trim()) {
+    if (!eventName) {
       errorEl.textContent = 'Informe o nome do evento.';
       return;
     }
-    if (!/^\d{4,8}$/.test(directorPin)) {
-      errorEl.textContent = 'O PIN do Diretor deve ter de 4 a 8 dígitos numéricos.';
+    if (!/^\d{4}$/.test(directorPin)) {
+      errorEl.textContent = 'O PIN do diretor deve ter 4 dígitos.';
       return;
     }
-    if (!/^\d{4,8}$/.test(adminPin)) {
-      errorEl.textContent = 'O PIN de Administrador deve ter de 4 a 8 dígitos numéricos.';
+    if (!/^\d{4}$/.test(adminPin)) {
+      errorEl.textContent = 'O PIN de admin deve ter 4 dígitos.';
       return;
     }
 
     try {
       const res = await Api.setup({
         eventName,
-        category,
-        firstDayLabel,
-        firstDayDate,
-        firstShiftName,
+        firstDayLabel: 'Dia 1',
+        firstShiftName: 'Geral',
         directorPin,
         adminPin
       });
 
       AppState.setAuth(res.token, res.role);
       this.close('modal-initial-setup');
-      window.showToast('Evento configurado com sucesso!', 'success');
       window.dispatchEvent(new CustomEvent('init-app-data'));
     } catch (err) {
       errorEl.textContent = err.message;
@@ -385,7 +399,7 @@ const Modals = {
     return html;
   },
 
-  // ⋯ of a day or shift: ✎ renomear · 🗑 excluir (two taps). The last day/shift cannot be deleted (no 🗑).
+  // Menu of a day or shift: rename, delete (two taps). The last day/shift cannot be deleted.
   openShiftPickerMenu(el) {
     const id = Number(el.dataset.id);
     const run = action => this.handleShiftPickerAction({ dataset: { action, id: String(id) } });
@@ -537,12 +551,12 @@ const Modals = {
     const name = form.eventName.value.trim();
     const category = form.eventCategory.value.trim();
     if (!name) {
+      form.eventName.focus();
       window.showToast('O nome do evento não pode ficar vazio.', 'warning');
       return;
     }
     try {
       await Api.updateEvent(AppState.event.id, { name, category });
-      window.showToast('Informações do evento salvas!', 'success');
       window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
     } catch (err) {
       window.showToast(err.message, 'error');
@@ -553,7 +567,18 @@ const Modals = {
     const dirPin = form.newDirectorPin.value.trim();
     const admPin = form.newAdminPin.value.trim();
     if (!dirPin && !admPin) {
+      form.newDirectorPin.focus();
       window.showToast('Digite um novo PIN para atualizar.', 'warning');
+      return;
+    }
+    if (dirPin && !/^\d{4}$/.test(dirPin)) {
+      form.newDirectorPin.focus();
+      window.showToast('O PIN do diretor deve ter 4 dígitos.', 'warning');
+      return;
+    }
+    if (admPin && !/^\d{4}$/.test(admPin)) {
+      form.newAdminPin.focus();
+      window.showToast('O PIN de admin deve ter 4 dígitos.', 'warning');
       return;
     }
     try {
@@ -562,7 +587,6 @@ const Modals = {
         adminPin: admPin || undefined
       });
       form.reset();
-      window.showToast('PINs atualizados com sucesso!', 'success');
     } catch (err) {
       window.showToast(err.message, 'error');
     }
@@ -573,15 +597,14 @@ const Modals = {
   // ==========================================
   async downloadEventBackup() {
     try {
-      window.showToast('Gerando backup do evento...', 'info');
       await Api.downloadBackup();
-      window.showToast('Backup baixado com sucesso!', 'success');
     } catch (err) {
       window.showToast('Erro ao baixar backup: ' + err.message, 'error');
     }
   },
 
-  async restoreEventBackup() {
+  // btn: the restore button; first tap arms it (UIDirector.confirmDelete), second tap restores
+  restoreEventBackup(btn) {
     const fileInput = document.getElementById('backup-file-input');
     const keepPinsCheckbox = document.getElementById('backup-keep-pins');
     const file = fileInput ? fileInput.files[0] : null;
@@ -591,41 +614,25 @@ const Modals = {
       return;
     }
 
-    if (!confirm('ATENÇÃO: A restauração substituirá todos os dados do evento ativo atual pelos dados deste arquivo de backup.\n\nDeseja realmente continuar?')) {
-      return;
-    }
-
-    const keepPins = keepPinsCheckbox ? keepPinsCheckbox.checked : true;
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
+    UIDirector.confirmDelete(btn, async () => {
+      const keepPins = keepPinsCheckbox ? keepPinsCheckbox.checked : true;
+      const text = await file.text().catch(() => { throw new Error('Erro ao ler o arquivo de backup.'); });
+      let backupData;
       try {
-        let backupData;
-        try {
-          backupData = JSON.parse(e.target.result);
-        } catch (parseErr) {
-          throw new Error('O arquivo selecionado não é um JSON válido.');
-        }
-
-        window.showToast('Restaurando backup...', 'info');
-        const res = await Api.restoreBackup(backupData, keepPins);
-
-        window.showToast(res.message || 'Backup restaurado com sucesso!', 'success');
-        fileInput.value = '';
-        this.close('modal-settings');
-
-        // Refresh all local app data
-        window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
-      } catch (err) {
-        window.showToast('Falha na restauração: ' + err.message, 'error');
+        backupData = JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error('O arquivo selecionado não é um JSON válido.');
       }
-    };
-
-    reader.onerror = () => {
-      window.showToast('Erro ao ler o arquivo de backup.', 'error');
-    };
-
-    reader.readAsText(file);
+      try {
+        await Api.restoreBackup(backupData, keepPins);
+      } catch (err) {
+        throw new Error('Falha na restauração: ' + err.message);
+      }
+      fileInput.value = '';
+      this.close('modal-settings');
+      // The screen reloads with the restored data
+      window.dispatchEvent(new CustomEvent('refresh-hierarchy-data'));
+    });
   },
 
   // ==========================================
@@ -634,21 +641,34 @@ const Modals = {
   openLanModal() {
     const qrImg = document.getElementById('lan-qrcode-img');
     const urlText = document.getElementById('lan-url-display');
-    const localText = document.getElementById('local-url-display');
 
     if (AppState.lanInfo) {
       if (qrImg) qrImg.src = AppState.lanInfo.qrCode || '';
-      if (urlText) urlText.textContent = AppState.lanInfo.lanUrl || 'Nenhum IP detectado';
-      if (localText) localText.textContent = AppState.lanInfo.localUrl || 'http://localhost:3000';
+      if (urlText) urlText.textContent = AppState.lanInfo.lanUrl || AppState.lanInfo.localUrl || 'Nenhum IP detectado';
     }
     this.open('modal-lan-connect');
   },
 
-  copyLanUrl() {
-    if (AppState.lanInfo && AppState.lanInfo.lanUrl) {
-      navigator.clipboard.writeText(AppState.lanInfo.lanUrl);
-      window.showToast('Endereço da rede copiado!', 'success');
+  async copyLanUrl() {
+    const url = AppState.lanInfo && (AppState.lanInfo.lanUrl || AppState.lanInfo.localUrl);
+    if (!url) return;
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      ok = true;
+    } catch (e) {
+      // Plain http on the LAN has no clipboard API: fall back to a temporary textarea
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      ta.remove();
     }
+    if (ok) window.showToast('Endereço copiado', 'success');
+    else window.showToast('Não foi possível copiar o endereço.', 'error');
   }
 };
 

@@ -27,12 +27,16 @@ const Api = {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        if (response.status === 401) {
+        // PIN rejections (/api/auth/*) are handled by the PIN keypad itself
+        if (response.status === 401 && !endpoint.startsWith('/api/auth/')) {
           // Token expired or invalid
           AppState.setAuth(null, null);
           window.dispatchEvent(new CustomEvent('auth-required'));
         }
-        throw new Error(data.error || `Erro HTTP ${response.status}`);
+        const error = new Error(data.error || `Erro HTTP ${response.status}`);
+        error.status = response.status;
+        if (data.remainingSeconds != null) error.remainingSeconds = data.remainingSeconds;
+        throw error;
       }
 
       return data;
@@ -82,6 +86,8 @@ const Api = {
     } finally {
       AppState.setAuth(null, null);
       AppState.setMode('director');
+      Modals.closeAll();
+      window.dispatchEvent(new CustomEvent('auth-required'));
     }
   },
 

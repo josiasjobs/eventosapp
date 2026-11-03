@@ -71,65 +71,28 @@
   <!-- ============================================== -->
   <div class="modal-backdrop" id="modal-initial-setup">
     <div class="modal-dialog">
-      <div class="modal-header">
-        <h2 class="modal-title">Configuração Inicial do Evento</h2>
-      </div>
       <form id="form-initial-setup" onsubmit="event.preventDefault(); Modals.submitSetup(this);">
-        <div class="modal-body">
-          <p style="font-size: 0.9rem; color: var(--text-2); margin-bottom: 16px;">
-            Configure as informações iniciais para ativar o EventosAPP neste servidor local.
-          </p>
-
-          <div class="form-group">
-            <label class="form-label" for="setup-event-name">Nome do Evento *</label>
-            <input type="text" class="form-input" id="setup-event-name" name="eventName"
-              placeholder="Ex: Conferência Transformados 2026" required>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="setup-category">Categoria / Descrição curta</label>
-            <input type="text" class="form-input" id="setup-category" name="category"
-              placeholder="Ex: Congresso Anual, Culto Especial, Seminário">
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="setup-day-label">Primeiro Dia (Rótulo)</label>
-              <input type="text" class="form-input" id="setup-day-label" name="firstDayLabel" value="Dia 1 - Abertura">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="setup-day-date">Data</label>
-              <input type="date" class="form-input" id="setup-day-date" name="firstDayDate">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="setup-shift-name">Primeiro Turno</label>
-            <input type="text" class="form-input" id="setup-shift-name" name="firstShiftName" value="Geral">
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="setup-dir-pin">PIN do Diretor (4 a 8 dígitos) *</label>
-              <input type="password" class="form-input" id="setup-dir-pin" name="directorPin" pattern="[0-9]{4,8}"
-                placeholder="Ex: 1234" required>
-              <span class="form-hint">Para operadores que acompanham e marcam mídias.</span>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="setup-adm-pin">PIN de Edição/Admin (4 a 8 dígitos) *</label>
-              <input type="password" class="form-input" id="setup-adm-pin" name="adminPin" pattern="[0-9]{4,8}"
-                placeholder="Ex: 8888" required>
-              <span class="form-hint">Para gerenciar programação, itens e configurações.</span>
-            </div>
-          </div>
-
-          <div id="setup-error-msg"
-            style="color: var(--danger); font-size: 0.85rem; margin-top: 10px; font-weight: 500;"></div>
+        <div class="modal-header">
+          <h2 class="modal-title">Configurar evento</h2>
+          <button type="submit" class="icon-btn btn-accent" id="btn-submit-setup" title="Concluir" aria-label="Concluir"
+            data-icon="check"></button>
         </div>
-
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary btn-lg" id="btn-submit-setup">Concluir e Iniciar
-            EventosAPP</button>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="setup-event-name">Nome do evento</label>
+            <input type="text" class="form-input" id="setup-event-name" name="eventName" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="setup-dir-pin">PIN do diretor (4 dígitos)</label>
+            <input type="password" class="form-input" id="setup-dir-pin" name="directorPin" inputmode="numeric"
+              pattern="[0-9]{4}" maxlength="4" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="setup-adm-pin">PIN de admin (4 dígitos)</label>
+            <input type="password" class="form-input" id="setup-adm-pin" name="adminPin" inputmode="numeric"
+              pattern="[0-9]{4}" maxlength="4" required autocomplete="off">
+          </div>
+          <div id="setup-error-msg" class="form-error" role="alert"></div>
         </div>
       </form>
     </div>
@@ -139,52 +102,36 @@
   <!-- MODAL 2: PIN KEYPAD AUTH (RF-02)               -->
   <!-- ============================================== -->
   <div class="modal-backdrop" id="modal-pin-auth">
-    <div class="modal-dialog" style="max-width: 400px;">
-      <div class="modal-header">
-        <h2 class="modal-title" id="pin-modal-title">Acesso ao EventosAPP</h2>
-        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-pin-auth')"
-          aria-label="Fechar">✕</button>
-      </div>
+    <div class="modal-dialog pin-dialog">
+      <button type="button" class="icon-btn pin-close" id="pin-close" title="Fechar" aria-label="Fechar"
+        data-icon="x" onclick="Modals.close('modal-pin-auth')"></button>
+      <div class="pin-mark" aria-hidden="true" data-icon="play" data-icon-size="32"></div>
 
-      <div class="modal-body" style="text-align: center;">
-        <p id="pin-modal-desc" style="font-size: 0.9rem; color: var(--text-2); margin-bottom: 8px;">
-          Digite o PIN numérico para continuar.
-        </p>
-
-        <!-- Dots Display -->
-        <div class="pin-display-wrapper">
-          <div class="pin-dots-container" id="pin-dots">
-            <div class="pin-dot"></div>
-            <div class="pin-dot"></div>
-            <div class="pin-dot"></div>
-            <div class="pin-dot"></div>
-          </div>
-        </div>
-
-        <!-- Numeric Keypad Grid -->
-        <div class="keypad-grid" id="pin-keypad">
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('1')">1</button>
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('2')">2</button>
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('3')">3</button>
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('4')">4</button>
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('5')">5</button>
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('6')">6</button>
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('7')">7</button>
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('8')">8</button>
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('9')">9</button>
-          <button class="keypad-btn action-btn" onclick="Modals.handlePinClear()">C</button>
-          <button class="keypad-btn" onclick="Modals.handlePinDigit('0')">0</button>
-          <button class="keypad-btn action-btn" onclick="Modals.handlePinBackspace()">⌫</button>
-        </div>
-
-        <div id="pin-error-msg"
-          style="color: var(--danger); font-size: 0.85rem; margin-top: 14px; min-height: 20px; font-weight: 500;">
+      <div class="pin-display-wrapper">
+        <div class="pin-dots-container" id="pin-dots" aria-label="PIN de 4 dígitos">
+          <div class="pin-dot"></div>
+          <div class="pin-dot"></div>
+          <div class="pin-dot"></div>
+          <div class="pin-dot"></div>
         </div>
       </div>
+      <div id="pin-error-msg" class="pin-msg" role="alert"></div>
 
-      <div class="modal-footer" style="justify-content: center;">
-        <button class="btn btn-primary btn-lg" id="btn-submit-pin" style="width: 100%;"
-          onclick="Modals.submitPin()">Confirmar Acesso</button>
+      <div class="keypad-grid" id="pin-keypad">
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('1')">1</button>
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('2')">2</button>
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('3')">3</button>
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('4')">4</button>
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('5')">5</button>
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('6')">6</button>
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('7')">7</button>
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('8')">8</button>
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('9')">9</button>
+        <button type="button" class="keypad-btn action-btn" title="Limpar" aria-label="Limpar"
+          onclick="Modals.handlePinClear()">C</button>
+        <button type="button" class="keypad-btn" onclick="Modals.handlePinDigit('0')">0</button>
+        <button type="button" class="keypad-btn action-btn" title="Apagar" aria-label="Apagar"
+          data-icon="backspace" onclick="Modals.handlePinBackspace()"></button>
       </div>
     </div>
   </div>
@@ -263,119 +210,70 @@
   </div>
 
   <!-- ============================================== -->
-  <!-- MODAL 5: EVENT SETTINGS & STRUCTURE            -->
+  <!-- MODAL 5: EVENT SETTINGS            -->
   <!-- ============================================== -->
   <div class="modal-backdrop" id="modal-settings">
-    <div class="modal-dialog" style="max-width: 600px;">
+    <div class="modal-dialog">
       <div class="modal-header">
-        <h2 class="modal-title">Configurações do Evento</h2>
-        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-settings')"
-          aria-label="Fechar">✕</button>
+        <h2 class="modal-title">Configurações</h2>
+        <button type="button" class="icon-btn" title="Fechar" aria-label="Fechar" data-icon="x"
+          onclick="Modals.close('modal-settings')"></button>
       </div>
 
-      <div class="modal-body">
-        <div class="tabs-header">
-          <button class="tab-btn active" onclick="switchModalTab('tab-general', this)">Dados do Evento</button>
-          <button class="tab-btn" onclick="switchModalTab('tab-security', this)">Segurança & PINs</button>
-          <button class="tab-btn" onclick="switchModalTab('tab-backup', this)">Backup & Restauração</button>
-        </div>
-
-        <!-- Tab 2: General Info -->
-        <div class="tab-pane active" id="tab-general">
+      <div class="modal-body settings-list">
+        <section class="settings-section">
+          <h3 class="settings-heading">Evento</h3>
           <form id="form-settings-general" onsubmit="event.preventDefault(); Modals.submitSettingsGeneral(this);">
             <div class="form-group">
-              <label class="form-label" for="settings-event-name">Nome do Evento</label>
-              <input type="text" class="form-input" id="settings-event-name" name="eventName" required>
+              <label class="form-label" for="settings-event-name">Nome</label>
+              <input type="text" class="form-input" id="settings-event-name" name="eventName" required autocomplete="off">
             </div>
             <div class="form-group">
               <label class="form-label" for="settings-event-cat">Categoria</label>
-              <input type="text" class="form-input" id="settings-event-cat" name="eventCategory">
+              <input type="text" class="form-input" id="settings-event-cat" name="eventCategory" autocomplete="off">
             </div>
-            <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Salvar Alterações</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
           </form>
-        </div>
+        </section>
 
-        <!-- Tab 3: Security & PINs -->
-        <div class="tab-pane" id="tab-security">
+        <section class="settings-section">
+          <h3 class="settings-heading">PINs</h3>
           <form id="form-settings-pins" onsubmit="event.preventDefault(); Modals.submitSettingsPins(this);">
             <div class="form-group">
-              <label class="form-label" for="new-dir-pin">Novo PIN do Diretor 4 dígitos</label>
-              <input type="password" class="form-input" id="new-dir-pin" name="newDirectorPin" pattern="[0-9]{4}"
-                placeholder="Deixe em branco para manter o atual">
+              <label class="form-label" for="new-dir-pin">Novo PIN do diretor (4 dígitos)</label>
+              <input type="password" class="form-input" id="new-dir-pin" name="newDirectorPin" inputmode="numeric"
+                pattern="[0-9]{4}" maxlength="4" autocomplete="off">
             </div>
             <div class="form-group">
-              <label class="form-label" for="new-adm-pin">Novo PIN de Administrador 4 dígitos</label>
-              <input type="password" class="form-input" id="new-adm-pin" name="newAdminPin" pattern="[0-9]{4}"
-                placeholder="Deixe em branco para manter o atual">
+              <label class="form-label" for="new-adm-pin">Novo PIN de admin (4 dígitos)</label>
+              <input type="password" class="form-input" id="new-adm-pin" name="newAdminPin" inputmode="numeric"
+                pattern="[0-9]{4}" maxlength="4" autocomplete="off">
+              <span class="form-hint">Em branco mantém o atual.</span>
             </div>
-            <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Atualizar PINs</button>
+            <button type="submit" class="btn btn-primary">Salvar PINs</button>
           </form>
-        </div>
+        </section>
 
-        <!-- Tab 4: Backup & Restauração -->
-        <div class="tab-pane" id="tab-backup">
-          <div style="display: flex; flex-direction: column; gap: 18px;">
-            
-            <!-- Export Card -->
-            <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px;">
-              <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px;">
-                <div style="width: 38px; height: 38px; border-radius: var(--radius); background: rgba(99, 102, 241, 0.15); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">
-                  📦
-                </div>
-                <div>
-                  <h4 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 700; color: var(--text);">Exportar Backup Completo</h4>
-                  <p style="margin: 0; font-size: 0.8rem; color: var(--text-2); line-height: 1.4;">
-                    Gera um arquivo <code>.json</code> contendo todos os dados do evento inteiro (dias, turnos, partes da programação, mídias e status).
-                  </p>
-                </div>
-              </div>
-              <button type="button" class="btn btn-primary" onclick="Modals.downloadEventBackup()" style="width: 100%;">
-                ⬇️ Baixar Backup do Evento (.json)
-              </button>
-            </div>
+        <section class="settings-section">
+          <h3 class="settings-heading">Backup</h3>
+          <button type="button" class="btn btn-secondary settings-block-btn" onclick="Modals.downloadEventBackup()">
+            <span data-icon="download"></span><span>Baixar backup (.json)</span>
+          </button>
 
-            <!-- Restore Card -->
-            <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px;">
-              <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px;">
-                <div style="width: 38px; height: 38px; border-radius: var(--radius); background: rgba(245, 158, 11, 0.15); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">
-                  🔄
-                </div>
-                <div>
-                  <h4 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 700; color: var(--text);">Restaurar Backup do Evento</h4>
-                  <p style="margin: 0; font-size: 0.8rem; color: var(--text-2); line-height: 1.4;">
-                    Substitui a programação e mídias do evento ativo atual pelos dados do arquivo de backup selecionado.
-                  </p>
-                </div>
-              </div>
-
-              <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 1rem;">⚠️</span>
-                <span style="font-size: 0.78rem; color: #fca5a5;">Atenção: A restauração sobrescreverá todos os dados do evento atual.</span>
-              </div>
-
-              <div class="form-group" style="margin-bottom: 12px;">
-                <label class="form-label" for="backup-file-input">Selecione o arquivo de backup (.json)</label>
-                <input type="file" class="form-input" id="backup-file-input" accept=".json,application/json">
-              </div>
-
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-                <input type="checkbox" id="backup-keep-pins" checked style="width: 16px; height: 16px; cursor: pointer;">
-                <label for="backup-keep-pins" style="font-size: 0.82rem; color: var(--text-2); cursor: pointer; user-select: none;">
-                  Manter os PINs atuais de Diretor e Administrador
-                </label>
-              </div>
-
-              <button type="button" class="btn btn-warning" onclick="Modals.restoreEventBackup()" style="width: 100%;">
-                🔄 Restaurar Evento a partir do Backup
-              </button>
-            </div>
-
+          <div class="form-group settings-restore">
+            <label class="form-label" for="backup-file-input">Restaurar a partir de um arquivo .json</label>
+            <input type="file" class="form-input" id="backup-file-input" accept=".json,application/json">
+            <label class="check-line" for="backup-keep-pins">
+              <input type="checkbox" id="backup-keep-pins" checked>
+              <span>Manter os PINs atuais</span>
+            </label>
+            <span class="form-hint">Os dados atuais do evento serão sobrescritos.</span>
+            <button type="button" class="btn btn-secondary settings-block-btn" id="btn-restore-backup"
+              onclick="Modals.restoreEventBackup(this)">
+              <span data-icon="upload"></span><span>Restaurar (toque duas vezes)</span>
+            </button>
           </div>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="Modals.close('modal-settings')">Fechar</button>
+        </section>
       </div>
     </div>
   </div>
@@ -384,45 +282,25 @@
   <!-- MODAL 6: LAN QR CODE & NETWORK PAIRING         -->
   <!-- ============================================== -->
   <div class="modal-backdrop" id="modal-lan-connect">
-    <div class="modal-dialog" style="max-width: 440px; text-align: center;">
+    <div class="modal-dialog">
       <div class="modal-header">
-        <h2 class="modal-title">Conexão na Rede Local (LAN)</h2>
-        <button class="btn btn-icon-sm btn-ghost" onclick="Modals.close('modal-lan-connect')"
-          aria-label="Fechar">✕</button>
+        <h2 class="modal-title">Conexão</h2>
+        <button type="button" class="icon-btn" title="Fechar" aria-label="Fechar" data-icon="x"
+          onclick="Modals.close('modal-lan-connect')"></button>
       </div>
 
-      <div class="modal-body">
-        <p style="font-size: 0.9rem; color: var(--text-2); margin-bottom: 16px;">
-          Escaneie o QR Code abaixo com a câmera do seu celular ou tablet conectado ao mesmo Wi-Fi para abrir o
-          EventosAPP instantaneamente.
-        </p>
-
-        <div
-          style="background: white; padding: 16px; border-radius: var(--radius); display: inline-block; margin-bottom: 16px; box-shadow: var(--shadow);">
-          <img id="lan-qrcode-img" src="" alt="QR Code LAN" style="width: 200px; height: 200px; display: block;">
+      <div class="modal-body lan-body">
+        <div class="lan-qr">
+          <img id="lan-qrcode-img" src="" alt="QR Code do endereço da rede local">
         </div>
-
-        <div
-          style="background: var(--surface); border: 1px solid var(--border); padding: 12px; border-radius: var(--radius); margin-bottom: 12px;">
-          <div style="font-size: 0.75rem; color: var(--text-2); margin-bottom: 4px;">Endereço na Rede Local:</div>
-          <div id="lan-url-display"
-            style="font-family: var(--font); font-weight: 700; color: #fbbf24; font-size: 1.05rem;">
-            Carregando...
-          </div>
-        </div>
-
-        <div style="font-size: 0.8rem; color: var(--text-2);">
-          Nesta mesma máquina: <span id="local-url-display"
-            style="font-family: var(--font); color: var(--text-2);">http://localhost:3000</span>
-        </div>
+        <button type="button" class="lan-url" id="lan-url-display" title="Copiar endereço"
+          aria-label="Copiar endereço" onclick="Modals.copyLanUrl()">Carregando...</button>
       </div>
 
-      <div class="modal-footer" style="justify-content: center;">
-        <button type="button" class="btn btn-ghost" id="btn-logout" title="Sair" aria-label="Sair">
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-logout" title="Sair" aria-label="Sair">
           <span data-icon="logout"></span><span>Sair</span>
         </button>
-        <button class="btn btn-secondary" onclick="Modals.copyLanUrl()">Copiar Endereço</button>
-        <button class="btn btn-primary" onclick="Modals.close('modal-lan-connect')">Entendido</button>
       </div>
     </div>
   </div>

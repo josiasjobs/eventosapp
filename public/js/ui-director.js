@@ -167,7 +167,7 @@ const UIDirector = {
     if (current && current.offsetParent !== null) current.scrollIntoView({ block: 'nearest' });
   },
 
-  // 3. Bottom bar: ◀ ☰ ▶ (☰ only on phone)
+  // 3. Bottom bar: prev, list, next (list only on phone)
   renderNavigationToolbar() {
     const navContainer = document.getElementById('director-nav-container');
     if (!navContainer) return;
@@ -393,7 +393,6 @@ const UIDirector = {
   async deleteItem(itemId) {
     try {
       await Api.deleteItem(itemId);
-      window.showToast('Parte excluída.', 'success');
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
     } catch (err) {
       window.showToast(err.message, 'error');
@@ -410,7 +409,6 @@ const UIDirector = {
       if (!file) return;
       const ev = new CustomEvent('import-playlist', { detail: { itemId, file } });
       window.dispatchEvent(ev);
-      window.showToast('Arquivo de playlist selecionado.', 'info');
     };
     document.body.appendChild(input);
     input.click();
@@ -420,7 +418,6 @@ const UIDirector = {
   async deleteMedia(mediaId) {
     try {
       await Api.deleteMedia(mediaId);
-      window.showToast('Mídia removida.', 'success');
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
     } catch (err) {
       window.showToast(err.message, 'error');

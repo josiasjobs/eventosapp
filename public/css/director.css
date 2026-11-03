@@ -229,7 +229,7 @@ button.dot.dot-lg::before { inset: -12px; }
 .empty-state-icon { display: inline-flex; color: var(--text-2); }
 
 /* =========================================
-   Barra de baixo: celular ◀ ☰ ▶ / tablet ◀ ▶
+   Barra de baixo: celular anterior, lista, proximo / tablet anterior, proximo
    ========================================= */
 .op-nav {
   flex: none;

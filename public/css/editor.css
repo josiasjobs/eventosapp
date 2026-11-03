@@ -24,7 +24,9 @@ body:not(.mode-editor) .edit-only { display: none !important; }
 
 /* Excluir com dois toques: armado = vermelho e pulsando (unico pulso permitido) */
 .icon-btn.is-armed,
-.icon-btn.is-armed:hover {
+.icon-btn.is-armed:hover,
+.btn.is-armed,
+.btn.is-armed:hover {
   background: var(--danger);
   color: #fff;
   animation: armed-pulse 0.9s ease-in-out infinite;
@@ -34,7 +36,7 @@ body:not(.mode-editor) .edit-only { display: none !important; }
   50% { opacity: 0.55; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .icon-btn.is-armed { animation: none; }
+  .icon-btn.is-armed, .btn.is-armed { animation: none; }
 }
 
 /* Botao + flutuante: canto inferior direito, acima da barra de baixo */
@@ -121,27 +123,3 @@ body.mode-editor .media-row {
   cursor: grabbing;
 }
 .is-reordering { cursor: grabbing; }
-
-/* Configuracoes: abas (ate a Tarefa 9) */
-.tabs-header {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 18px;
-  gap: 8px;
-}
-.tab-btn {
-  min-height: var(--tap);
-  padding: 8px 16px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-2);
-  font-weight: 600;
-  font-size: var(--fs-small);
-  cursor: pointer;
-  transition: color var(--t), border-color var(--t);
-}
-.tab-btn:hover { color: var(--text); }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-.tab-pane { display: none; }
-.tab-pane.active { display: block; }
