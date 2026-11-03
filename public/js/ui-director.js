@@ -576,15 +576,33 @@ const UIDirector = {
   },
 
   // Outside tap, scroll, resize and Esc close the row menu and the + menu
+  // A tap outside an open menu only dismisses it: the click that follows is swallowed once, so it never
+  // toggles a media, completes a part, changes the current part or switches the shift underneath.
+  // Taps on the menu's own anchor (⋯ / +) still reach it so it can toggle the menu.
   bindOverlayDismiss() {
     document.addEventListener('pointerdown', (e) => {
+      this._swallowClickUntil = 0; // a new tap: never let an older dismissal eat it
+      let dismissed = false;
       const m = this._menu;
       if (m && !m.el.contains(e.target)) {
         if (m.anchor.contains(e.target)) this._menuSkip = { el: m.anchor, until: Date.now() + 800 };
+        else dismissed = true;
         this.closeRowMenu();
       }
       const fabWrap = document.getElementById('fab');
-      if (fabWrap && !fabWrap.contains(e.target)) this.closeFabMenu();
+      const fabMenu = document.getElementById('fab-menu');
+      if (fabWrap && !fabWrap.contains(e.target) && fabMenu && !fabMenu.hidden) {
+        dismissed = true;
+        this.closeFabMenu();
+      }
+      if (dismissed) this._swallowClickUntil = Date.now() + 500;
+    }, true);
+    document.addEventListener('click', (e) => {
+      if (Date.now() < (this._swallowClickUntil || 0)) {
+        this._swallowClickUntil = 0;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
     }, true);
     const onScrollOrResize = () => { this.closeRowMenu(); this.closeFabMenu(); };
     window.addEventListener('scroll', onScrollOrResize, true);
@@ -686,6 +704,7 @@ const UIDirector = {
     };
 
     listEl.addEventListener('pointerdown', (e) => {
+      this._suppressClickUntil = 0; // a new tap: the click a past drop may have left pending is gone
       if (press || AppState.mode !== 'editor' || !e.isPrimary) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       const row = e.target.closest(rowSelector);
