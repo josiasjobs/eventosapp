@@ -14,6 +14,7 @@ const fs = require('fs');
 const util = require('util');
 
 const { queries } = require('./db');
+const { playlistMediaTitle } = require('./playlist-title');
 const {
   hashPin,
   comparePin,
@@ -731,12 +732,6 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
     const imageExts = ['jpg','jpeg','png','webp','gif','bmp','tif','tiff','heic','avif'];
     const videoExts = ['mp4','m4v','mov','avi','mkv','webm','mpeg','mpg','3gp','ts'];
     const bibleRegex = /^(?:[1-3]\s+)?(?:[A-Za-z\u00C0-\u00FF]+(?:\s+[A-Za-z\u00C0-\u00FF]+)?)\s+\d+[:.]\d+(?:\s*[-,]\s*\d+)*$/i;
-    const mapEndAction = (val) => {
-      if (val === 0) return 'Continuar';
-      if (val === 1) return 'Repetir';
-      return null;
-    };
-
     let rows = [];
 
     // ── Estrategia 1: TagMap → PlaylistItem ──────────────────────────────────
@@ -827,8 +822,9 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
       }
       if (type === 'other' && bibleRegex.test(label)) type = 'bible';
 
-      // Trazer somente o nome e tipo, deixando a observação em branco
-      const finalName = label || (row.mediaPath ? path.basename(row.mediaPath, path.extname(row.mediaPath)) : ('Item ' + orderIdx));
+      // Nome + regras do JW Library ("Editado", "Continuar", "Repetir"); observação em branco
+      const baseName = label || (row.mediaPath ? path.basename(row.mediaPath, path.extname(row.mediaPath)) : ('Item ' + orderIdx));
+      const finalName = playlistMediaTitle(baseName, row);
       const reference = '';
 
       console.log('[IMPORT] #' + orderIdx + ': "' + finalName + '" tipo=' + type);
