@@ -366,6 +366,9 @@ const Modals = {
     form.querySelectorAll('.type-picker [role="radio"]').forEach(btn => {
       btn.setAttribute('aria-checked', String(btn.dataset.type === type));
     });
+    // Theater and interview use the notes field for the camera preset
+    const refLabel = form.querySelector('label[for="media-ref"]');
+    if (refLabel) refLabel.textContent = (type === 'theater' || type === 'interview') ? 'Camera - Preset' : 'Observações';
   },
 
   initMediaTypePicker() {
