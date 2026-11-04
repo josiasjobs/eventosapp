@@ -79,7 +79,7 @@ body:not(.mode-editor) .edit-only { display: none !important; }
   border-radius: 6px;
   box-shadow: var(--shadow);
 }
-.fab-menu[hidden] { display: none; }
+.fab-menu[hidden], .fab-option[hidden] { display: none; }
 .fab-option {
   display: flex;
   align-items: center;
