@@ -107,6 +107,46 @@
 }
 .side-btn[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .side-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Foto do participante no formulário da pergunta: quadro 3x4 + Foto / Remover */
+.q-photo-group { flex-direction: row; align-items: center; gap: 16px; }
+.q-photo {
+  flex: none;
+  width: 72px;
+  aspect-ratio: 3 / 4;
+  display: inline-flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: 2px;
+  color: var(--text-2);
+  font-size: 22px;
+  font-weight: 700;
+}
+.q-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.q-photo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.q-photo-actions .btn[hidden] { display: none; }
+
+/* Recorte da foto: por cima do formulário da pergunta */
+#modal-photo-crop { z-index: 1100; }
+.crop-body { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.crop-frame {
+  position: relative;
+  width: min(300px, 100%);
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: #000;
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--accent);
+  touch-action: none;
+  cursor: grab;
+}
+.crop-frame:active { cursor: grabbing; }
+.crop-frame canvas { display: block; width: 100%; height: 100%; }
+.crop-zoom-label {
+  width: min(300px, 100%);
+  display: flex; align-items: center; gap: 12px;
+  font-size: var(--fs-small); color: var(--text-2); font-weight: 600;
+}
+.crop-zoom { flex: 1; min-width: 0; min-height: var(--tap); accent-color: var(--accent); }
 .form-label { font-size: var(--fs-small); color: var(--text-2); font-weight: 600; }
 .form-input, .form-textarea {
   width: 100%;
