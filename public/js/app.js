@@ -180,6 +180,19 @@ function setupEventListeners() {
         window.showToast(mode === 'talks' ? 'Nenhum discurso neste turno' : 'Sem partes neste turno', 'error');
         return;
       }
+      // Sentinela: with participant photos or not (only asked when there is a photo to print)
+      let withPhotos = false;
+      if (mode === 'sentinela' && items.some(i => (i.medias || []).some(m => m.type === 'question' && m.photo && Logic.isValidPhoto(m.photo)))) {
+        const choice = await Modals.askChoice({
+          title: 'Sentinela',
+          options: [
+            { value: 'yes', label: 'Com fotos', icon: 'image', style: 'accent' },
+            { value: 'no', label: 'Sem fotos', icon: 'list' }
+          ]
+        });
+        if (!choice) return;
+        withPhotos = choice === 'yes';
+      }
       const day = (AppState.days || []).find(d => d.id === AppState.selectedDayId);
       const shift = day && (day.shifts || []).find(s => s.id === AppState.selectedShiftId);
       // Opened right after the tap on the choice, so the browser still counts it as user-initiated
@@ -188,6 +201,7 @@ function setupEventListeners() {
         dayLabel: day ? day.label : '',
         shiftName: shift ? shift.name : '',
         mode,
+        withPhotos,
         items
       });
       if (!opened) window.showToast('O navegador bloqueou a nova aba. Libere pop-ups para este endereço.', 'error');
