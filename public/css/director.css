@@ -242,6 +242,12 @@ button.dot.dot-lg::before { inset: -12px; }
   font-weight: 700;
   letter-spacing: 0.06em;
   text-align: center;
+  /* Stays visible while the cards scroll; the shadow covers the scroller's top padding */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  box-shadow: 0 -24px 0 var(--bg);
 }
 .sent-cols span { padding: 8px; }
 .sent-cols span + span { border-left: 1px solid var(--border); }
