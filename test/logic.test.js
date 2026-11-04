@@ -243,3 +243,35 @@ test('notas da mídia: teatro e entrevista mostram "Camera - Preset"', () => {
   assert.equal(L.mediaNotesText({ type: 'interview', reference: '' }), '');
   assert.equal(L.mediaNotesText({ type: 'image', reference: 'Projetor 2' }), 'Projetor 2');
 });
+
+test('coverScale cobre a moldura 3x4', () => {
+  assert.equal(L.coverScale(1600, 1200, 240, 320), 320 / 1200);
+  assert.equal(L.coverScale(900, 1600, 240, 320), 240 / 900);
+  assert.equal(L.coverScale(120, 160, 240, 320), 2);
+});
+
+test('clampPan mantém a moldura coberta', () => {
+  const s = 320 / 1200; // imagem 1600x1200 -> 426.67 x 320
+  assert.deepEqual(L.clampPan(10, 5, 1600, 1200, s, 240, 320), { x: 0, y: 0 });
+  const r = L.clampPan(-1000, -50, 1600, 1200, s, 240, 320);
+  assert.equal(Math.round(r.x * 100) / 100, Math.round((240 - 1600 * s) * 100) / 100);
+  assert.equal(r.y, 0);
+  assert.deepEqual(L.clampPan(-50, 0, 1600, 1200, s, 240, 320), { x: -50, y: 0 });
+});
+
+test('fitWithin reduz sem aumentar', () => {
+  assert.deepEqual(L.fitWithin(4000, 3000, 1600), { w: 1600, h: 1200 });
+  assert.deepEqual(L.fitWithin(3000, 4000, 1600), { w: 1200, h: 1600 });
+  assert.deepEqual(L.fitWithin(800, 600, 1600), { w: 800, h: 600 });
+});
+
+test('isValidPhoto aceita só webp/jpeg em base64 até 100 KB', () => {
+  assert.equal(L.isValidPhoto(''), true);
+  assert.equal(L.isValidPhoto('data:image/webp;base64,UklGRg=='), true);
+  assert.equal(L.isValidPhoto('data:image/jpeg;base64,/9j/4AAQ'), true);
+  assert.equal(L.isValidPhoto('data:image/png;base64,iVBORw0K'), false);
+  assert.equal(L.isValidPhoto('javascript:alert(1)'), false);
+  assert.equal(L.isValidPhoto('data:image/webp;base64,abc"><script>'), false);
+  assert.equal(L.isValidPhoto('data:image/webp;base64,' + 'A'.repeat(102400)), false);
+  assert.equal(L.isValidPhoto(null), false);
+});

@@ -194,5 +194,34 @@
     return notes && PRESET_TYPES.includes(media.type) ? `${notesLabel(media.type)}: ${notes}` : notes;
   }
 
-  return { notesLabel, mediaNotesText, shiftHasSentinela, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials };
+  // Smallest scale that covers the frame (no empty edges)
+  function coverScale(imgW, imgH, frameW, frameH) {
+    return Math.max(frameW / imgW, frameH / imgH);
+  }
+
+  // Image top-left (x, y) relative to the frame, kept so the scaled image still covers it
+  function clampPan(x, y, imgW, imgH, scale, frameW, frameH) {
+    const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+    return {
+      x: clamp(x, frameW - imgW * scale, 0),
+      y: clamp(y, frameH - imgH * scale, 0),
+    };
+  }
+
+  // Scales down to fit max on the longer side; never enlarges
+  function fitWithin(w, h, max) {
+    const k = Math.min(1, max / Math.max(w, h));
+    return { w: Math.round(w * k), h: Math.round(h * k) };
+  }
+
+  // Participant photo: empty (no photo) or a small webp/jpeg data URL in base64
+  const PHOTO_MAX_LENGTH = 102400;
+  const PHOTO_PATTERN = /^data:image\/(webp|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/;
+  function isValidPhoto(value) {
+    if (typeof value !== 'string') return false;
+    if (value === '') return true;
+    return value.length <= PHOTO_MAX_LENGTH && PHOTO_PATTERN.test(value);
+  }
+
+  return { notesLabel, mediaNotesText, shiftHasSentinela, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials, coverScale, clampPan, fitWithin, isValidPhoto };
 });
