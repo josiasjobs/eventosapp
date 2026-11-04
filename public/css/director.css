@@ -325,6 +325,7 @@ button.dot.dot-lg::before { inset: -12px; }
   color: var(--text-2);
   font-weight: 700;
 }
+img.sent-photo, img.step-photo { display: block; object-fit: cover; }
 .sent-photo { width: 60px; font-size: 18px; }
 .sent-person.is-current .sent-photo { box-shadow: 0 0 0 2px var(--accent); color: var(--text); }
 
