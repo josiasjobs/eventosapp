@@ -81,24 +81,21 @@ const UIDirector = {
     const status = Logic.itemStatus(currentItem);
     const itemId = Number(currentItem.id);
 
-    const mediasHtml = medias.length === 0
-      ? this.emptyStateHtml('file', 'Sem mídias')
-      : medias.map(media => {
-        const typeInfo = this.getMediaTypeInfo(media.type);
-        const done = !!media.completed;
-        return `
-          <div class="media-row${done ? ' is-done' : ''}" data-media-id="${Number(media.id)}"
-               role="button" tabindex="0" aria-pressed="${done}">
-            <span class="check-circle${done ? ' is-done' : ''}">${icon('check', 16)}</span>
-            <span class="media-type-icon" title="${uiEsc(typeInfo.label)}">${icon(typeInfo.icon)}</span>
-            <span class="media-text">
-              <span class="media-title">${uiEsc(media.title)}</span>
-              ${Logic.mediaNotes(media.reference) ? `<span class="media-notes">${uiEsc(Logic.mediaNotes(media.reference))}</span>` : ''}
-            </span>
-            ${uiIconButton('more', 'Ações da mídia', 'data-action="media-menu" aria-haspopup="menu" aria-expanded="false"', 'more-btn edit-only')}
-          </div>
-        `;
-      }).join('');
+    const sentinela = this.isSentinelaWithSteps(currentItem);
+    const stepId = sentinela ? AppState.getStepId(currentItem) : null;
+    let mediasHtml;
+    if (sentinela) {
+      mediasHtml = AppState.mode === 'editor'
+        ? this.sentinelaEditListHtml(currentItem, stepId)
+        : this.sentinelaCardsHtml(currentItem, stepId);
+    } else {
+      mediasHtml = medias.length === 0
+        ? this.emptyStateHtml('file', 'Sem mídias')
+        : medias.map(media => this.mediaRowHtml(media)).join('');
+    }
+    const speakerCam = sentinela && this.hasCam(currentItem.cam_speaker)
+      ? `<span class="meta-item">${icon('video', 16)}<span>Orador CAM ${uiEsc(currentItem.cam_speaker)}</span></span>`
+      : '';
 
     spotlightContainer.innerHTML = `
       <article class="current-part" data-item-id="${itemId}">
@@ -113,15 +110,153 @@ const UIDirector = {
         <div class="current-meta">
           ${currentItem.scheduled_time ? `<span class="meta-item tnum">${icon('clock', 16)}<span>${uiEsc(currentItem.scheduled_time)}</span></span>` : ''}
           ${currentItem.speaker ? `<span class="meta-item">${icon('user', 16)}<span>${uiEsc(currentItem.speaker)}</span></span>` : ''}
+          ${speakerCam}
         </div>
 
         ${currentItem.description ? `<p class="current-notes">${uiEsc(currentItem.description)}</p>` : ''}
 
-        <div class="media-list" id="medias-checklist-list">
+        <div class="media-list${sentinela ? ' sent-list' : ''}" id="medias-checklist-list">
           ${mediasHtml}
         </div>
       </article>
     `;
+
+    // Bring the current step into view only when it changed since this part was last drawn.
+    if (sentinela) {
+      const last = this._lastStepByItem || (this._lastStepByItem = {});
+      if (last[itemId] !== stepId) {
+        last[itemId] = stepId;
+        const target = spotlightContainer.querySelector('.sent-card.is-current, .is-current[data-media-id]');
+        if (target && target.offsetParent !== null) target.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  },
+
+  // Media row with the manual ☐ (plain parts, Sentinela media cards and the Sentinela edit list)
+  mediaRowHtml(media, extraClass = '') {
+    const typeInfo = this.getMediaTypeInfo(media.type);
+    const done = !!media.completed;
+    const notes = Logic.mediaNotes(media.reference);
+    return `
+          <div class="media-row${done ? ' is-done' : ''}${extraClass}" data-media-id="${Number(media.id)}"
+               role="button" tabindex="0" aria-pressed="${done}">
+            <span class="check-circle${done ? ' is-done' : ''}">${icon('check', 16)}</span>
+            <span class="media-type-icon" title="${uiEsc(typeInfo.label)}">${icon(typeInfo.icon)}</span>
+            <span class="media-text">
+              <span class="media-title">${uiEsc(media.title)}</span>
+              ${notes ? `<span class="media-notes">${uiEsc(notes)}</span>` : ''}
+            </span>
+            ${uiIconButton('more', 'Ações da mídia', 'data-action="media-menu" aria-haspopup="menu" aria-expanded="false"', 'more-btn edit-only')}
+          </div>
+        `;
+  },
+
+  // ==========================================
+  // SENTINELA: cards in director mode, flat list in edit mode
+  // ==========================================
+  isSentinelaWithSteps(item) {
+    return !!(item && item.activity_type === 'sentinela' && (item.medias || []).length > 0);
+  },
+
+  hasCam(cam) {
+    return cam !== null && cam !== undefined && String(cam).trim() !== '';
+  },
+
+  // The camera that films a side: cam_left films the left side, cam_right the right one
+  sideCam(item, side) {
+    const cam = side === 'left' ? item.cam_left : item.cam_right;
+    return this.hasCam(cam) ? cam : null;
+  },
+
+  sideLabel(side) {
+    return side === 'left' ? 'ESQUERDA' : 'DIREITA';
+  },
+
+  paragraphHtml(paragraph) {
+    return paragraph != null ? `<span class="sent-para">§${uiEsc(paragraph)}</span>` : '';
+  },
+
+  sentinelaCardsHtml(item, stepId) {
+    const cardsHtml = Logic.groupSentinelaSteps(item.medias).map(group => {
+      const isCurrent = group.steps.some(s => s.id === stepId);
+      const cardClass = `sent-card${isCurrent ? ' is-current' : ''}${group.paragraph != null ? ' has-para' : ''}`;
+
+      if (group.kind === 'media') {
+        return `
+          <div class="${cardClass} sent-card-media">
+            ${this.paragraphHtml(group.paragraph)}
+            ${this.mediaRowHtml(group.steps[0])}
+          </div>
+        `;
+      }
+
+      const peopleHtml = group.steps.map(step => {
+        const current = step.id === stepId;
+        return `
+          <div class="sent-person${current ? ' is-current' : ''}" data-media-id="${Number(step.id)}"
+               role="button" tabindex="0"${current ? ' aria-current="step"' : ''}>
+            <span class="sent-name">${uiEsc(step.person)}</span>
+            <span class="sent-photo" aria-hidden="true">${uiEsc(Logic.initials(step.person))}</span>
+            <span class="sent-text">${uiEsc(step.title)}</span>
+          </div>
+        `;
+      }).join('');
+      const cam = this.sideCam(item, group.side);
+      const camHtml = cam === null ? '' : `
+        <span class="sent-cam${isCurrent ? ' is-current' : ''}">${icon('video', 28)}<span>CAM ${uiEsc(cam)}</span></span>
+      `;
+      const peopleCol = `<div class="sent-col sent-people">${peopleHtml}</div>`;
+      const camCol = `<div class="sent-col sent-cam-col">${camHtml}</div>`;
+      return `
+        <div class="${cardClass} side-${group.side === 'left' ? 'left' : 'right'}">
+          ${this.paragraphHtml(group.paragraph)}
+          ${group.side === 'left' ? peopleCol + camCol : camCol + peopleCol}
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="sent-cols" aria-hidden="true"><span>ESQUERDA</span><span>DIREITA</span></div>
+      <div class="sent-cards">${cardsHtml}</div>
+    `;
+  },
+
+  // Edit mode: one flat list (headers + rows share a parent) so long-press reorder can move any step.
+  sentinelaEditListHtml(item, stepId) {
+    return Logic.groupSentinelaSteps(item.medias).map(group => {
+      let head = '';
+      if (group.kind === 'question') {
+        const cam = this.sideCam(item, group.side);
+        const parts = [group.paragraph != null ? `§${group.paragraph}` : '', this.sideLabel(group.side), cam !== null ? `CAM ${cam}` : '']
+          .filter(Boolean).join(' · ');
+        const preset = `data-paragraph="${group.paragraph != null ? Number(group.paragraph) : ''}" data-side="${uiEsc(group.side)}"`;
+        head = `
+          <div class="sent-head">
+            <span class="sent-head-label">${uiEsc(parts)}</span>
+            ${uiIconButton('plus', 'Adicionar pergunta neste cartão', `data-action="add-question" ${preset}`)}
+          </div>
+        `;
+      } else if (group.paragraph != null) {
+        head = `<div class="sent-head"><span class="sent-head-label">§${uiEsc(group.paragraph)}</span></div>`;
+      }
+
+      const rows = group.steps.map(step => {
+        const current = step.id === stepId;
+        if (group.kind === 'media') return this.mediaRowHtml(step, current ? ' is-current' : '');
+        return `
+          <div class="row step-row${current ? ' is-current' : ''}" data-media-id="${Number(step.id)}"
+               role="button" tabindex="0"${current ? ' aria-current="step"' : ''}>
+            <span class="step-photo" aria-hidden="true">${uiEsc(Logic.initials(step.person))}</span>
+            <span class="media-text">
+              <span class="media-title">${uiEsc(step.person)}</span>
+              <span class="media-notes">${uiEsc(step.title)}</span>
+            </span>
+            ${uiIconButton('more', 'Ações da pergunta', 'data-action="step-menu" aria-haspopup="menu" aria-expanded="false"', 'more-btn')}
+          </div>
+        `;
+      }).join('');
+      return head + rows;
+    }).join('');
   },
 
   // 2. Program list (left column on tablet, drawer on phone)
@@ -180,13 +315,17 @@ const UIDirector = {
     const items = AppState.shiftData.items || [];
     const currentIndex = items.findIndex(i => i.id === AppState.currentItemId);
 
-    const hasPrev = currentIndex > 0;
-    const hasNext = currentIndex !== -1 && currentIndex < items.length - 1;
+    const stepPrev = this._hasStep('prev');
+    const stepNext = this._hasStep('next');
+    const hasPrev = stepPrev || currentIndex > 0;
+    const hasNext = stepNext || (currentIndex !== -1 && currentIndex < items.length - 1);
+    const prevLabel = stepPrev ? 'Passo anterior' : 'Parte anterior';
+    const nextLabel = stepNext ? 'Próximo passo' : 'Próxima parte';
 
     navContainer.innerHTML = `
-      ${uiIconButton('chevron-left', 'Parte anterior', `id="btn-nav-prev" data-action="prev"${hasPrev ? '' : ' disabled'}`, 'nav-btn')}
+      ${uiIconButton('chevron-left', prevLabel, `id="btn-nav-prev" data-action="prev"${hasPrev ? '' : ' disabled'}`, 'nav-btn')}
       ${uiIconButton('list', 'Programação', 'id="btn-open-schedule-modal" data-action="open-list"', 'nav-btn phone-only')}
-      ${uiIconButton('chevron-right', 'Próxima parte', `id="btn-nav-next" data-action="next"${hasNext ? '' : ' disabled'}`, 'nav-btn nav-next btn-accent')}
+      ${uiIconButton('chevron-right', nextLabel, `id="btn-nav-next" data-action="next"${hasNext ? '' : ' disabled'}`, 'nav-btn nav-next btn-accent')}
     `;
   },
 
@@ -205,7 +344,7 @@ const UIDirector = {
     const spotlight = document.getElementById('spotlight-container');
     if (spotlight) {
       spotlight.addEventListener('click', (e) => this.onSpotlightClick(e));
-      this.enableLongPressReorder(spotlight, '.media-row[data-media-id]', (ids) => this.reorderMedias(ids));
+      this.enableLongPressReorder(spotlight, '.media-row[data-media-id], .step-row[data-media-id]', (ids) => this.reorderMedias(ids));
     }
 
     this.bindFab();
@@ -218,7 +357,7 @@ const UIDirector = {
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       const t = e.target;
-      if (t && t.matches && t.matches('.part-row[data-item-id], .media-row[data-media-id]')) {
+      if (t && t.matches && t.matches('.part-row[data-item-id], .media-row[data-media-id], .step-row[data-media-id], .sent-person[data-media-id]')) {
         e.preventDefault();
         t.click();
       }
@@ -251,15 +390,29 @@ const UIDirector = {
     const actionEl = e.target.closest('[data-action]');
     const mediaRow = e.target.closest('.media-row[data-media-id]');
     const mediaId = mediaRow ? Number(mediaRow.dataset.mediaId) : null;
+    const stepEl = e.target.closest('.sent-person[data-media-id], .step-row[data-media-id]');
+    const stepId = stepEl ? Number(stepEl.dataset.mediaId) : null;
 
     if (actionEl) {
       switch (actionEl.dataset.action) {
         case 'toggle-item': if (itemId) this.toggleItemDot(itemId); break;
         case 'media-menu': if (itemId && mediaId) this.openMediaMenu(actionEl, itemId, mediaId); break;
+        case 'step-menu': if (itemId && stepId) this.openQuestionMenu(actionEl, itemId, stepId); break;
+        case 'add-question': {
+          const paragraph = actionEl.dataset.paragraph ? Number(actionEl.dataset.paragraph) : null;
+          if (itemId) Modals.openQuestionModal(itemId, null, { paragraph, side: actionEl.dataset.side });
+          break;
+        }
       }
       return;
     }
 
+    // Sentinela: a tap on a person or media moves the current step there (a media also toggles its ☐)
+    const item = itemId ? this._findItem(itemId) : null;
+    const tappedStep = stepId || mediaId;
+    if (tappedStep && this.isSentinelaWithSteps(item) && AppState.getStepId(item) !== tappedStep) {
+      AppState.setStepId(itemId, tappedStep);
+    }
     if (mediaId) this.handleMediaClick(mediaId);
   },
 
@@ -378,7 +531,25 @@ const UIDirector = {
     this.render();
   },
 
+  // Inside a Sentinela with steps, moves the current step; returns false when it must leave the part.
+  _moveStep(dir) {
+    const item = AppState.getCurrentItem();
+    if (!this.isSentinelaWithSteps(item)) return false;
+    const nav = Logic.stepNav(item.medias.map(m => m.id), AppState.getStepId(item), dir);
+    if (nav.stepId == null) return false;
+    AppState.setStepId(item.id, nav.stepId);
+    return true;
+  },
+
+  // Is there a step to go to in that direction inside the current part?
+  _hasStep(dir) {
+    const item = AppState.getCurrentItem();
+    if (!this.isSentinelaWithSteps(item)) return false;
+    return Logic.stepNav(item.medias.map(m => m.id), AppState.getStepId(item), dir).stepId != null;
+  },
+
   navigatePrevious() {
+    if (this._moveStep('prev')) return;
     const items = AppState.shiftData.items || [];
     const currentIndex = items.findIndex(i => i.id === AppState.currentItemId);
     if (currentIndex > 0) {
@@ -387,6 +558,7 @@ const UIDirector = {
   },
 
   navigateNext() {
+    if (this._moveStep('next')) return;
     const items = AppState.shiftData.items || [];
     const currentIndex = items.findIndex(i => i.id === AppState.currentItemId);
     if (currentIndex !== -1 && currentIndex < items.length - 1) {
@@ -414,10 +586,13 @@ const UIDirector = {
       if (!file) return;
       // Parte com mídias: perguntar se substitui ou adiciona abaixo da última
       const item = this._findItem(itemId);
-      const count = item && item.medias ? item.medias.length : 0;
+      // Sentinela: only medias count, and Substituir keeps the questions
+      const count = item && item.medias ? item.medias.filter(Logic.isMediaStep).length : 0;
+      const keepsQuestions = item && item.activity_type === 'sentinela'
+        ? ' As perguntas continuam; Substituir troca só as mídias.' : '';
       const mode = count === 0 ? 'append' : await Modals.askChoice({
         title: 'Importar playlist',
-        text: `Esta parte já tem ${count} ${count === 1 ? 'mídia' : 'mídias'}.`,
+        text: `Esta parte já tem ${count} ${count === 1 ? 'mídia' : 'mídias'}.${keepsQuestions}`,
         options: [
           { value: 'append', label: 'Adicionar abaixo', icon: 'plus', style: 'accent' },
           { value: 'replace', label: 'Substituir', icon: 'trash', style: 'danger' }
@@ -460,6 +635,13 @@ const UIDirector = {
     this.openRowMenu(anchorEl, [
       { icon: 'pencil', label: 'Editar mídia', onClick: () => Modals.openMediaModal(itemId, mediaId) },
       { icon: 'trash', label: 'Excluir mídia', danger: true, onClick: () => this.deleteMedia(mediaId) }
+    ]);
+  },
+
+  openQuestionMenu(anchorEl, itemId, stepId) {
+    this.openRowMenu(anchorEl, [
+      { icon: 'pencil', label: 'Editar pergunta', onClick: () => Modals.openQuestionModal(itemId, stepId) },
+      { icon: 'trash', label: 'Excluir pergunta', danger: true, onClick: () => this.deleteMedia(stepId) }
     ]);
   },
 

@@ -264,7 +264,7 @@ function setupEventListeners() {
         connBtn.title = `Conexão: ${label}`;
         connBtn.setAttribute('aria-label', `Conexão: ${label}`);
       }
-    } else if (eventType === 'CURRENT_ITEM_CHANGED' || eventType === 'MEDIA_TOGGLED' || eventType === 'ITEM_TOGGLED') {
+    } else if (eventType === 'CURRENT_ITEM_CHANGED' || eventType === 'STEP_CHANGED' || eventType === 'MEDIA_TOGGLED' || eventType === 'ITEM_TOGGLED') {
       UIDirector.render();
     }
   });

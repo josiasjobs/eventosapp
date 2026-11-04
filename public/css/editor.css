@@ -109,13 +109,15 @@ body.mode-editor .op-list { padding-bottom: 88px; }
 
 /* Segurar e arrastar: sem selecao de texto nem menu do sistema durante o toque longo */
 body.mode-editor .part-row,
-body.mode-editor .media-row {
+body.mode-editor .media-row,
+body.mode-editor .step-row {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
 .part-row.is-dragging,
-.media-row.is-dragging {
+.media-row.is-dragging,
+.step-row.is-dragging {
   position: relative;
   z-index: 2;
   background: var(--surface-2);

@@ -229,6 +229,151 @@ button.dot.dot-lg::before { inset: -12px; }
 .media-title { overflow-wrap: anywhere; }
 .media-notes { font-size: var(--fs-small); color: var(--text-2); overflow-wrap: anywhere; }
 
+/* =========================================
+   Sentinela: colunas ESQUERDA | DIREITA e cartoes por paragrafo
+   ========================================= */
+.sent-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+.sent-cols span { padding: 8px; }
+.sent-cols span + span { border-left: 1px solid var(--border); }
+
+.sent-cards { display: flex; flex-direction: column; gap: 6px; }
+
+.sent-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 112px;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 2px transparent;
+  transition: box-shadow var(--t);
+}
+.sent-card.has-para { padding-top: 28px; }
+.sent-card.is-current { box-shadow: inset 0 0 0 2px var(--accent); }
+
+.sent-para {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sent-card.is-current .sent-para { color: var(--accent); }
+
+.sent-col {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+}
+
+.sent-person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 84px;
+  padding: 4px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sent-person:hover { background: var(--surface-2); }
+.sent-person:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sent-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: var(--fs-small);
+}
+.sent-person.is-current .sent-name { color: var(--text); font-weight: 700; }
+
+/* Quadro 3x4 (iniciais enquanto nao ha foto) */
+.sent-photo, .step-photo {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3 / 4;
+  background: var(--surface-2);
+  border-radius: 2px;
+  color: var(--text-2);
+  font-weight: 700;
+}
+.sent-photo { width: 60px; font-size: 18px; }
+.sent-person.is-current .sent-photo { box-shadow: 0 0 0 2px var(--accent); color: var(--text); }
+
+.sent-text {
+  max-width: 100%;
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.sent-cam {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sent-cam.is-current { color: var(--accent); }
+
+/* Cartao de midia: a linha com o quadradinho ocupa as duas colunas */
+.sent-card.sent-card-media { grid-template-columns: 1fr; min-height: 0; padding: 0; }
+.sent-card.sent-card-media.has-para { padding-top: 22px; }
+.sent-card-media .media-row { background: transparent; }
+
+/* Modo edicao: lista plana com um cabecalho por cartao */
+.sent-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 4px;
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  font-weight: 700;
+}
+.sent-head:first-child { margin-top: 0; }
+.sent-head-label { flex: 1; min-width: 0; }
+
+.step-row { min-height: 56px; border-radius: var(--radius); border-bottom: none; }
+.step-photo { width: 30px; font-size: 12px; }
+.sent-list .step-row.is-current,
+.sent-list .media-row.is-current { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* Celular: fotos menores e pessoas de um cartao empilhadas */
+@media (max-width: 767px) {
+  .sent-card { min-height: 0; padding: 8px; }
+  .sent-card.has-para { padding-top: 24px; }
+  .sent-people { flex-direction: column; flex-wrap: nowrap; }
+  .sent-person { width: 100%; max-width: 96px; }
+  .sent-photo { width: 44px; font-size: 15px; }
+  .sent-cam svg { width: 22px; height: 22px; }
+}
+
 /* Estados vazios */
 .empty-state {
   display: flex;
