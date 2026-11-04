@@ -38,8 +38,27 @@
         </li>`;
     };
 
+    const cardHtml = (item, card) => {
+      const para = card.paragraph ? `<span class="para">§${esc(card.paragraph)}</span>` : '';
+      if (card.kind === 'media') {
+        return card.steps.map((m, i) => mediaHtml(m).replace('<li class="media">',
+          `<li class="media">${i === 0 ? para : '<span class="para"></span>'}`)).join('');
+      }
+      const left = card.side === 'left';
+      const cam = left ? item.cam_left : item.cam_right;
+      const label = `${left ? 'ESQUERDA' : 'DIREITA'}${cam ? ` · CAM ${cam}` : ''}`;
+      const people = card.steps.map(s => `${esc(s.person)} — ${esc(s.title)}`).join(' · ');
+      return `
+        <li class="media question">${para}<span class="side">${esc(label)}</span>
+          <span class="media-text">${people}</span></li>`;
+    };
+
     const partHtml = (item) => {
       const medias = item.medias || [];
+      const sent = item.activity_type === 'sentinela';
+      const listHtml = sent
+        ? Logic.groupSentinelaSteps(medias).map(c => cardHtml(item, c)).join('')
+        : medias.map(mediaHtml).join('');
       return `
         <section class="part">
           <div class="part-head">
@@ -47,12 +66,13 @@
             <span class="time">${esc(item.scheduled_time)}</span>
             <span class="part-title">${esc(item.title)}</span>
           </div>
-          ${item.speaker || item.description ? `<div class="meta">
+          ${item.speaker || item.description || (sent && item.cam_speaker) ? `<div class="meta">
             ${item.speaker ? `<span class="speaker">${icon('user', 14)}<span>${esc(item.speaker)}</span></span>` : ''}
+            ${sent && item.cam_speaker ? `<span class="notes">Orador CAM ${esc(item.cam_speaker)}</span>` : ''}
             ${item.description ? `<span class="notes">${esc(item.description)}</span>` : ''}
           </div>` : ''}
           ${medias.length
-            ? `<ul class="medias">${medias.map(mediaHtml).join('')}</ul>`
+            ? `<ul class="medias">${listHtml}</ul>`
             : '<div class="empty">Sem mídias</div>'}
         </section>`;
     };
@@ -103,6 +123,8 @@
   .type { flex: none; width: 6.4em; display: flex; align-items: center; gap: 4px; color: var(--text-2); font-size: 8.5pt; }
   .media-text { display: flex; flex-direction: column; min-width: 0; }
   .media-title { overflow-wrap: anywhere; }
+  .para { flex: none; width: 2.2em; font-weight: 700; color: var(--accent); font-size: 9pt; }
+  .side { flex: none; width: 9em; font-weight: 700; font-size: 8.5pt; color: var(--text-2); }
   .empty { padding: 4px 10px 8px; font-size: 9.5pt; color: var(--text-2); font-style: italic; }
 </style>
 </head>

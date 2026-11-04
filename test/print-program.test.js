@@ -124,3 +124,23 @@ test('roteiro só de discursos identifica isso no cabeçalho', () => {
 test('roteiro completo não mostra o aviso de discursos', () => {
   assert.doesNotMatch(buildProgramHtml(data), /Somente discursos/);
 });
+
+const sentinela = {
+  scheduled_time: '15:00', title: 'A Sentinela', speaker: '', description: '', talk_number: 3,
+  activity_type: 'sentinela', cam_left: 1, cam_right: 3, cam_speaker: 2,
+  medias: [
+    { type: 'question', paragraph: 1, side: 'left', person: 'Pedro', title: 'A?' },
+    { type: 'question', paragraph: 1, side: 'left', person: 'Jonas', title: 'B?' },
+    { type: 'bible', paragraph: 2, title: 'Salmo 119:9', reference: '' },
+    { type: 'question', paragraph: 2, side: 'right', person: 'Joana', title: '?' }
+  ]
+};
+
+test('Sentinela imprime cartões com lado, câmera e ☐ só nas mídias', () => {
+  const html = buildProgramHtml({ ...data, items: [sentinela] });
+  assert.match(html, /Orador CAM 2/);
+  assert.match(html, /ESQUERDA · CAM 1[\s\S]*Pedro[\s\S]*A\?[\s\S]*Jonas[\s\S]*B\?/);
+  assert.match(html, /DIREITA · CAM 3[\s\S]*Joana/);
+  assert.match(html, /§1/);
+  assert.equal((html.match(/class="box"/g) || []).length, 1);
+});
