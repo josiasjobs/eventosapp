@@ -457,6 +457,7 @@ const Modals = {
   // ==========================================
   questionEditId: null,
   questionTargetItemId: null,
+  questionPhoto: '', // photo in the form; saved only with the question
 
   // preset: { paragraph, side, afterId, people } prefilled (afterId: insert after that step; people: names saved this session) on create (used by "Salvar e próxima" and the director view)
   openQuestionModal(itemId, stepId = null, preset = {}) {
@@ -474,17 +475,19 @@ const Modals = {
     list.innerHTML = names.map(n => `<option value="${Logic.escapeHtml(n)}"></option>`).join('');
 
     document.getElementById('question-modal-title').textContent = stepId ? 'Editar pergunta' : 'Nova pergunta';
-    let paragraph = preset.paragraph, side = preset.side, person = '', title = '?';
+    let paragraph = preset.paragraph, side = preset.side, person = '', title = '?', photo = '';
     if (stepId) {
       const step = steps.find(m => m.id === Number(stepId));
       if (step) {
         paragraph = step.paragraph; side = step.side; person = step.person || ''; title = step.title || '?';
+        photo = Logic.isValidPhoto(step.photo || '') ? (step.photo || '') : ''; // a bad stored value must not block saving
       }
     }
     form.qParagraph.value = paragraph || '';
     this.setQuestionSide(form, side);
     form.qPerson.value = person;
     form.qTitle.value = title;
+    this.setQuestionPhoto(photo);
 
     this.open('modal-question-editor');
     form.qPerson.focus();
@@ -499,12 +502,42 @@ const Modals = {
     });
   },
 
+  // Updates the form photo and its 3x4 frame (photo, or the initials of the typed name)
+  setQuestionPhoto(photo) {
+    this.questionPhoto = photo;
+    this.renderQuestionPhoto();
+  },
+
+  renderQuestionPhoto() {
+    const frame = document.getElementById('q-photo');
+    const photo = this.questionPhoto;
+    const hasPhoto = !!photo && Logic.isValidPhoto(photo);
+    frame.innerHTML = hasPhoto
+      ? `<img src="${photo}" alt="">`
+      : Logic.escapeHtml(Logic.initials(document.getElementById('q-person').value));
+    document.getElementById('q-photo-remove').hidden = !hasPhoto;
+  },
+
   initQuestionForm() {
     const picker = document.querySelector('#form-question .side-picker');
     if (!picker) return;
     picker.addEventListener('click', e => {
       const btn = e.target.closest('[role="radio"]');
       if (btn) this.setQuestionSide(btn.closest('form'), btn.dataset.side);
+    });
+    document.getElementById('q-person').addEventListener('input', () => this.renderQuestionPhoto());
+    const fileInput = document.getElementById('q-photo-input');
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      fileInput.value = ''; // choosing the same file again must fire change
+      if (!file) return;
+      const photo = await PhotoCropper.open(file);
+      if (photo === null) return;
+      if (!Logic.isValidPhoto(photo)) {
+        window.showToast('Foto inválida ou grande demais.', 'error');
+        return;
+      }
+      this.setQuestionPhoto(photo);
     });
   },
 
@@ -524,7 +557,8 @@ const Modals = {
       title: form.qTitle.value.trim() || '?',
       paragraph: checked.paragraph,
       side: checked.side,
-      person: checked.person
+      person: checked.person,
+      photo: this.questionPhoto
     };
     const itemId = this.questionTargetItemId;
 

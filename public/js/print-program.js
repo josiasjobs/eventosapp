@@ -84,6 +84,7 @@
   td.para { font-weight: 700; color: var(--accent); font-size: 9pt; }
   .people { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
   .person { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+  .pphoto { width: 1.8cm; height: 2.4cm; object-fit: cover; border-radius: 3px; margin-bottom: 2px; }
   .person span { color: var(--text-2); font-size: 9pt; }
   .cam { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--text-2); font-size: 9pt; }
   .media-line { display: flex; gap: 10px; align-items: flex-start; text-align: left; }`;
@@ -174,6 +175,10 @@
     const { icon, mediaInner, partHeadHtml } = makeHelpers(opts);
     const context = contextOf(data);
 
+    // Photo above the name, only when asked and valid (never an arbitrary URL)
+    const photoHtml = (s) => data.withPhotos && s.photo && Logic.isValidPhoto(s.photo)
+      ? `<img class="pphoto" src="${esc(s.photo)}" alt="">` : '';
+
     const rowHtml = (item, card) => {
       const para = `<td class="para">${card.paragraph ? `§${esc(card.paragraph)}` : ''}</td>`;
       if (card.kind === 'media') {
@@ -184,7 +189,7 @@
       const left = card.side === 'left';
       const cam = left ? item.cam_left : item.cam_right;
       const people = `<div class="people">${card.steps.map(s => `
-            <span class="person"><strong>${esc(s.person)}</strong><span>${esc(s.title)}</span></span>`).join('')}</div>`;
+            <span class="person">${photoHtml(s)}<strong>${esc(s.person)}</strong><span>${esc(s.title)}</span></span>`).join('')}</div>`;
       const camHtml = cam ? `<span class="cam">${icon('video', 14)}<span>CAM ${esc(cam)}</span></span>` : '';
       const [colL, colR] = left ? [people, camHtml] : [camHtml, people];
       return `

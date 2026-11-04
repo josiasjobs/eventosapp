@@ -177,3 +177,23 @@ test('roteiro mostra "Camera - Preset" nas mídias de teatro e entrevista', () =
     medias: [{ type: 'theater', title: 'Cena 1', reference: 'CAM 2 - P4' }] }] });
   assert.match(html, /Camera - Preset: CAM 2 - P4/);
 });
+
+const photo = 'data:image/webp;base64,UklGRg==';
+const sentFotos = { ...sentinela, medias: [
+  { type: 'question', paragraph: 1, side: 'left', person: 'Pedro', title: 'A?', photo },
+  { type: 'question', paragraph: 1, side: 'left', person: 'Jonas', title: 'B?', photo: '' },
+  { type: 'question', paragraph: 2, side: 'right', person: 'Joana', title: '?', photo: 'javascript:alert(1)' }
+] };
+
+test('Sentinela com fotos: <img> só para foto válida', () => {
+  const html = buildSentinelaHtml({ ...data, withPhotos: true, items: [sentFotos] });
+  assert.equal((html.match(/<img /g) || []).length, 1);
+  assert.match(html, /<img [^>]*src="data:image\/webp;base64,UklGRg=="/);
+  assert.doesNotMatch(html, /javascript:/);
+  assert.match(html, /width: 1\.8cm/);
+});
+
+test('Sentinela sem fotos: nenhuma <img>', () => {
+  const html = buildSentinelaHtml({ ...data, withPhotos: false, items: [sentFotos] });
+  assert.doesNotMatch(html, /<img /);
+});

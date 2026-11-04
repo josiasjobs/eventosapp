@@ -11,6 +11,14 @@ const uiIconButton = (iconName, label, attrs = '', extraClass = '') =>
   `<button type="button" class="icon-btn ${extraClass}" title="${uiEsc(label)}" aria-label="${uiEsc(label)}" ${attrs}>${icon(iconName)}</button>`;
 
 const UIDirector = {
+  // Foto do participante (so se valida) ou, sem ela, as iniciais
+  photoHtml(step, cls) {
+    if (step.photo && Logic.isValidPhoto(step.photo)) {
+      return `<img class="${cls}" src="${uiEsc(step.photo)}" alt="">`;
+    }
+    return `<span class="${cls}" aria-hidden="true">${uiEsc(Logic.initials(step.person))}</span>`;
+  },
+
   // Media type -> label + icon name
   getMediaTypeInfo(type) {
     const labels = {
@@ -196,7 +204,7 @@ const UIDirector = {
           <div class="sent-person${current ? ' is-current' : ''}" data-media-id="${Number(step.id)}"
                role="button" tabindex="0"${current ? ' aria-current="step"' : ''}>
             <span class="sent-name">${uiEsc(step.person)}</span>
-            <span class="sent-photo" aria-hidden="true">${uiEsc(Logic.initials(step.person))}</span>
+            ${this.photoHtml(step, 'sent-photo')}
             <span class="sent-text">${uiEsc(step.title)}</span>
           </div>
         `;
@@ -246,7 +254,7 @@ const UIDirector = {
         return `
           <div class="row step-row${current ? ' is-current' : ''}" data-media-id="${Number(step.id)}"
                role="button" tabindex="0"${current ? ' aria-current="step"' : ''}>
-            <span class="step-photo" aria-hidden="true">${uiEsc(Logic.initials(step.person))}</span>
+            ${this.photoHtml(step, 'step-photo')}
             <span class="media-text">
               <span class="media-title">${uiEsc(step.person)}</span>
               <span class="media-notes">${uiEsc(step.title)}</span>

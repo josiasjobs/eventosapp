@@ -290,9 +290,9 @@ const queries = {
 
   createMedia(itemId, title, type, reference, orderNum, step = {}) {
     const res = db.prepare(`
-      INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person)
-      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
-    `).run(itemId, title, type, reference || '', orderNum, step.paragraph ?? null, step.side || '', step.person || '');
+      INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person, photo)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+    `).run(itemId, title, type, reference || '', orderNum, step.paragraph ?? null, step.side || '', step.person || '', step.photo || '');
     return res.lastInsertRowid;
   },
 
@@ -321,10 +321,10 @@ const queries = {
   updateMedia(id, title, type, reference, step = {}) {
     return db.prepare(`
       UPDATE medias
-      SET title = ?, type = ?, reference = ?, paragraph = ?, side = ?, person = ?,
+      SET title = ?, type = ?, reference = ?, paragraph = ?, side = ?, person = ?, photo = ?,
           updated_at = datetime('now', 'localtime')
       WHERE id = ?
-    `).run(title, type, reference || '', step.paragraph ?? null, step.side || '', step.person || '', id);
+    `).run(title, type, reference || '', step.paragraph ?? null, step.side || '', step.person || '', step.photo || '', id);
   },
 
   updateMediaOrder(id, orderNum) {
