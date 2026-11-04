@@ -168,3 +168,61 @@ test('parseTalkNumber: inteiro positivo vale', () => {
 test('parseTalkNumber: zero, negativo, decimal e texto são inválidos', () => {
   for (const v of ['0', 0, '-3', '2.5', 2.5, 'abc', '5a', '1e3']) assert.equal(L.parseTalkNumber(v), false, String(v));
 });
+
+const q = (id, paragraph, side, person = 'X') => ({ id, type: 'question', paragraph, side, person, title: '?' });
+const m = (id, paragraph = null, completed = 0) => ({ id, type: 'bible', paragraph, completed, title: 'T' });
+
+test('parsePositiveInt e parseTalkNumber', () => {
+  assert.equal(L.parsePositiveInt(''), null);
+  assert.equal(L.parsePositiveInt('3'), 3);
+  assert.equal(L.parsePositiveInt('0'), false);
+  assert.equal(L.parseTalkNumber('2.5'), false);
+});
+
+test('checkQuestionStep valida parágrafo, lado e nome', () => {
+  assert.deepEqual(L.checkQuestionStep({ paragraph: '2', side: 'left', person: ' Ana ' }), { paragraph: 2, side: 'left', person: 'Ana' });
+  assert.equal(L.checkQuestionStep({ paragraph: '2', side: 'left', person: ' ' }).error, 'Informe o nome de quem responde.');
+  assert.equal(L.checkQuestionStep({ paragraph: '', side: 'left', person: 'A' }).error, 'Informe o parágrafo (número inteiro maior que zero).');
+  assert.equal(L.checkQuestionStep({ paragraph: '1', side: 'meio', person: 'A' }).error, 'O lado deve ser Esquerda ou Direita.');
+});
+
+test('groupSentinelaSteps junta perguntas seguidas de mesmo § e lado', () => {
+  const g = L.groupSentinelaSteps([q(1, 1, 'left'), q(2, 1, 'left'), q(3, 2, 'right'), m(4, 2), q(5, 2, 'right'), q(6, 2, 'left')]);
+  assert.deepEqual(g.map(c => [c.kind, c.paragraph, c.side, c.steps.map(s => s.id)]), [
+    ['question', 1, 'left', [1, 2]],
+    ['question', 2, 'right', [3]],
+    ['media', 2, null, [4]],
+    ['question', 2, 'right', [5]],
+    ['question', 2, 'left', [6]]
+  ]);
+  assert.deepEqual(L.groupSentinelaSteps([]), []);
+});
+
+test('stepNav anda e sai nas pontas', () => {
+  assert.deepEqual(L.stepNav([1, 2, 3], 2, 'next'), { stepId: 3 });
+  assert.deepEqual(L.stepNav([1, 2, 3], 2, 'prev'), { stepId: 1 });
+  assert.deepEqual(L.stepNav([1, 2, 3], 3, 'next'), { leave: 'next' });
+  assert.deepEqual(L.stepNav([1, 2, 3], 1, 'prev'), { leave: 'prev' });
+  assert.deepEqual(L.stepNav([], null, 'next'), { leave: 'next' });
+  assert.deepEqual(L.stepNav([1, 2], 99, 'next'), { stepId: 1 });
+  assert.deepEqual(L.stepNav([1, 2], 99, 'prev'), { leave: 'prev' });
+});
+
+test('pickInitialStep usa o salvo se ainda existe, senão o primeiro', () => {
+  assert.equal(L.pickInitialStep([1, 2], 2), 2);
+  assert.equal(L.pickInitialStep([1, 2], 9), 1);
+  assert.equal(L.pickInitialStep([], 9), null);
+});
+
+test('initials', () => {
+  assert.equal(L.initials('Pedro'), 'PE');
+  assert.equal(L.initials('ana maria silva'), 'AS');
+  assert.equal(L.initials('  '), '');
+});
+
+test('perguntas não contam para status e conclusão da parte', () => {
+  assert.equal(L.itemCompletionAfterToggle([q(1, 1, 'left'), m(2, null, 1)], false, true), true);
+  assert.equal(L.itemCompletionAfterToggle([q(1, 1, 'left')], false, true), null);
+  assert.equal(L.itemStatus({ completed: 0, medias: [q(1, 1, 'left'), m(2)] }), 'empty');
+  assert.equal(L.itemStatus({ completed: 0, medias: [m(1, null, 1), m(2)] }), 'partial');
+});
