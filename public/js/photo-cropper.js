@@ -151,6 +151,8 @@ const PhotoCropper = (() => {
   // Esc cancels the crop only, leaving the question form open
   function onKeyDown(e) {
     if (e.key !== 'Escape') return;
+    // Hidden behind our back (Modals.closeAll on logout): clean up and let the key through
+    if (!els.modal.classList.contains('open')) { finish(null); return; }
     e.preventDefault();
     e.stopImmediatePropagation();
     finish(null);
@@ -166,8 +168,14 @@ const PhotoCropper = (() => {
     const s = view.scale;
     ctx.drawImage(work, -view.x / s, -view.y / s, frameW / s, frameH / s, 0, 0, OUT_W, OUT_H);
     const webp = out.toDataURL('image/webp', 0.72);
-    if (webp.startsWith('data:image/webp')) return webp;
-    return out.toDataURL('image/jpeg', 0.8);
+    if (webp.startsWith('data:image/webp') && Logic.isValidPhoto(webp)) return webp;
+    // webp unsupported (or too big): jpeg, lowering the quality until it fits the size limit
+    let jpeg = '';
+    for (const q of [0.8, 0.6, 0.45]) {
+      jpeg = out.toDataURL('image/jpeg', q);
+      if (Logic.isValidPhoto(jpeg)) break;
+    }
+    return jpeg;
   }
 
   function finish(result) {
@@ -221,6 +229,8 @@ const PhotoCropper = (() => {
       window.addEventListener('keydown', onKeyDown, true);
       window.addEventListener('resize', measure);
       measure();
+      // Enter/Space must not reopen the file picker underneath; waits for the backdrop to become visible
+      setTimeout(() => { if (pending === resolve) els.modal.querySelector('.crop-confirm').focus(); }, 100);
     });
   }
 

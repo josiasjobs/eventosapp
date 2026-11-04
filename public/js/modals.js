@@ -480,7 +480,7 @@ const Modals = {
       const step = steps.find(m => m.id === Number(stepId));
       if (step) {
         paragraph = step.paragraph; side = step.side; person = step.person || ''; title = step.title || '?';
-        photo = step.photo || '';
+        photo = Logic.isValidPhoto(step.photo || '') ? (step.photo || '') : ''; // a bad stored value must not block saving
       }
     }
     form.qParagraph.value = paragraph || '';
@@ -532,7 +532,12 @@ const Modals = {
       fileInput.value = ''; // choosing the same file again must fire change
       if (!file) return;
       const photo = await PhotoCropper.open(file);
-      if (photo !== null) this.setQuestionPhoto(photo);
+      if (photo === null) return;
+      if (!Logic.isValidPhoto(photo)) {
+        window.showToast('Foto inválida ou grande demais.', 'error');
+        return;
+      }
+      this.setQuestionPhoto(photo);
     });
   },
 
