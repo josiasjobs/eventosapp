@@ -80,3 +80,41 @@ test('passo guarda e atualiza a foto; backup leva a foto', () => {
   const steps = backup.days.flatMap(d => d.shifts).flatMap(s => s.items).find(i => i.title === 'Foto').medias;
   assert.equal(steps[0].photo, photo);
 });
+
+// Turno novo a cada teste: testes anteriores restauram o evento
+function freshShift() {
+  const ev = queries.getActiveEvent();
+  const day = queries.createDay(ev.id, '2026-11-03', 'Dia parte', 99);
+  return queries.createShift(day, 'Turno parte', '09:00', '12:00', 1);
+}
+
+test('importPlaylistsAsParts acrescenta partes no fim do turno', () => {
+  const sid = freshShift(); // cria dia + turno no evento ativo
+  queries.createItem(sid, 'Existente', '09:00', '', '', '', 1);
+  const r = queries.importPlaylistsAsParts(sid, [
+    { name: 'A', medias: [{ title: 'm1', type: 'bible', reference: '' }, { title: 'm2', type: 'image', reference: '' }] },
+    { name: 'B', medias: [{ title: 'm3', type: 'video', reference: '' }] }
+  ], false, '09:00');
+  assert.deepEqual(r, { partsCount: 2, mediasCount: 3 });
+  const items = queries.getItemsByShift(sid);
+  assert.deepEqual(items.map(i => [i.title, i.scheduled_time, i.order_num]), [['Existente', '09:00', 1], ['A', '09:00', 2], ['B', '09:00', 3]]);
+  assert.deepEqual(queries.getMediasByItem(items[1].id).map(m => [m.title, m.order_num]), [['m1', 1], ['m2', 2]]);
+});
+
+test('importPlaylistsAsParts substitui as partes do turno', () => {
+  const sid = freshShift();
+  const old = queries.createItem(sid, 'Velha', '08:00', '', '', 'sentinela', 1, 901);
+  queries.createMedia(old, '?', 'question', '', 1, { paragraph: 1, side: 'left', person: 'X' });
+  queries.setShiftCurrentItem(sid, old);
+  queries.importPlaylistsAsParts(sid, [{ name: 'Nova', medias: [{ title: 'm', type: 'other', reference: '' }] }], true, '10:00');
+  assert.deepEqual(queries.getItemsByShift(sid).map(i => i.title), ['Nova']);
+  assert.equal(queries.getMediasByItem(old).length, 0);
+  assert.equal(queries.getShift(sid).current_item_id, null);
+});
+
+test('importPlaylistsAsParts não muda nada se falhar no meio', () => {
+  const sid = freshShift();
+  queries.createItem(sid, 'Fica', '08:00', '', '', '', 1);
+  assert.throws(() => queries.importPlaylistsAsParts(sid, [{ name: 'X', medias: [{ title: null, type: 'other', reference: '' }] }], true, '10:00'));
+  assert.deepEqual(queries.getItemsByShift(sid).map(i => i.title), ['Fica']);
+});
