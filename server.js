@@ -15,7 +15,7 @@ const util = require('util');
 
 const { queries } = require('./db');
 const { playlistMediaTitle } = require('./playlist-title');
-const { parseTalkNumber, parsePositiveInt, checkQuestionStep } = require('./public/js/logic.js');
+const { parseTalkNumber, parsePositiveInt, checkQuestionStep, shiftHasSentinela } = require('./public/js/logic.js');
 
 // Validates the talk number (Discurso) of a part: { talkNumber } or { status, error }.
 // The number is optional, must be a positive integer and is unique across the event.
@@ -60,6 +60,7 @@ function checkStep(mediaType, fields, parentItem) {
 }
 
 const SENTINELA_NEEDS_TALK = 'A Sentinela precisa do número do discurso.';
+const SENTINELA_ONE_PER_SHIFT = 'Este turno já tem uma Sentinela.';
 const MEDIA_TYPES = ['bible', 'image', 'video', 'interview', 'theater', 'question', 'other'];
 
 const {
@@ -583,6 +584,9 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
   }
 
   const currentItems = queries.getItemsByShift(shiftId);
+  if ((activityType ? activityType.trim() : '') === 'sentinela' && shiftHasSentinela(currentItems)) {
+    return res.status(409).json({ error: SENTINELA_ONE_PER_SHIFT });
+  }
   const nextOrder = currentItems.length + 1;
 
   const itemId = queries.createItem(
@@ -633,6 +637,9 @@ app.put('/api/items/:id', authenticate('admin'), (req, res) => {
   const effectiveType = activityType !== undefined ? activityType.trim() : item.activity_type;
   if (effectiveType === 'sentinela' && talk.talkNumber === null) {
     return res.status(400).json({ error: SENTINELA_NEEDS_TALK });
+  }
+  if (effectiveType === 'sentinela' && shiftHasSentinela(queries.getItemsByShift(item.shift_id), item.id)) {
+    return res.status(409).json({ error: SENTINELA_ONE_PER_SHIFT });
   }
 
   queries.updateItem(

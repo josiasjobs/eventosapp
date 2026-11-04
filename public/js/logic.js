@@ -177,5 +177,10 @@
     return pair.join('').toUpperCase();
   }
 
-  return { localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials };
+  // A shift holds at most one Sentinela; exceptId ignores the part being edited
+  function shiftHasSentinela(items, exceptId = null) {
+    return (items || []).some((i) => i.activity_type === 'sentinela' && i.id !== exceptId);
+  }
+
+  return { shiftHasSentinela, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials };
 });

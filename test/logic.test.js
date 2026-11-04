@@ -226,3 +226,11 @@ test('perguntas não contam para status e conclusão da parte', () => {
   assert.equal(L.itemStatus({ completed: 0, medias: [q(1, 1, 'left'), m(2)] }), 'empty');
   assert.equal(L.itemStatus({ completed: 0, medias: [m(1, null, 1), m(2)] }), 'partial');
 });
+
+test('shiftHasSentinela: um turno aceita só uma Sentinela', () => {
+  const items = [{ id: 1, activity_type: '' }, { id: 2, activity_type: 'sentinela' }];
+  assert.equal(L.shiftHasSentinela(items), true);
+  assert.equal(L.shiftHasSentinela(items, 2), false);
+  assert.equal(L.shiftHasSentinela([{ id: 1, activity_type: '' }]), false);
+  assert.equal(L.shiftHasSentinela(undefined), false);
+});

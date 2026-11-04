@@ -767,6 +767,8 @@ const UIDirector = {
     const questionOpt = menu.querySelector('[data-fab="question"]');
     const current = AppState.getCurrentItem();
     if (questionOpt) questionOpt.hidden = !(current && current.activity_type === 'sentinela');
+    const sentinelaOpt = menu.querySelector('[data-fab="sentinela"]');
+    if (sentinelaOpt) sentinelaOpt.hidden = Logic.shiftHasSentinela(AppState.shiftData && AppState.shiftData.items);
     menu.hidden = false;
     fab.setAttribute('aria-expanded', 'true');
   },
