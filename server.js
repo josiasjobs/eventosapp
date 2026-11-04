@@ -811,8 +811,9 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
 
     // mode=replace apaga as mídias atuais da parte; qualquer outro valor adiciona abaixo da última
     const replace = req.body.mode === 'replace';
-    // Uma playlist vazia nunca apaga as mídias existentes
-    if (medias.length > 0) queries.importMedias(Number(itemId), medias, replace);
+    // Arquivo sem itens é recusado antes de qualquer mudança: nunca apaga as mídias existentes
+    if (medias.length === 0) return res.status(400).json({ error: 'Nenhuma playlist com itens neste arquivo.' });
+    queries.importMedias(Number(itemId), medias, replace);
 
     const item = queries.getItem(itemId);
     broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId: Number(itemId) });
@@ -851,7 +852,8 @@ app.post('/api/shifts/:id/import-jwlibrary', authenticate('admin'), upload.singl
 
     const replace = req.body.mode === 'replace';
     const existing = replace ? [] : queries.getItemsByShift(shiftId);
-    const time = (existing.length ? existing[existing.length - 1].scheduled_time : shift.start_time) || '00:00';
+    const lastPart = existing[existing.length - 1];
+    const time = lastPart?.scheduled_time || shift.start_time || '00:00';
 
     const result = queries.importPlaylistsAsParts(shiftId, playlists, replace, time);
     broadcast('PROGRAM_UPDATED', { shiftId });
