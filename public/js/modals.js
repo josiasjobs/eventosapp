@@ -394,6 +394,75 @@ const Modals = {
     return new Promise(resolve => { this._choiceResolve = resolve; });
   },
 
+  // + > Importar JW Library: pick a file, a target shift and (if it has parts) append/replace
+  async importJwLibrary() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.jwlibrary';
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (file) await this._runJwLibraryImport(file);
+    });
+    input.click();
+  },
+
+  async _runJwLibraryImport(file) {
+    const title = 'Importar JW Library';
+    const options = [];
+    for (const d of AppState.days) {
+      for (const s of (d.shifts || [])) {
+        options.push({ value: String(s.id), dayId: d.id, label: `${d.label} · ${s.name}`, style: s.id === AppState.selectedShiftId ? 'accent' : '' });
+      }
+    }
+    if (!options.length) return;
+    options.sort((a, b) => (b.style ? 1 : 0) - (a.style ? 1 : 0));
+    const picked = await this.askChoice({ title, text: 'Em qual turno importar?', options });
+    if (!picked) return;
+    const shiftId = Number(picked);
+    const dayId = options.find(o => o.value === picked).dayId;
+
+    let count = 0;
+    try {
+      if (shiftId === AppState.selectedShiftId) {
+        count = ((AppState.shiftData && AppState.shiftData.items) || []).length;
+      } else {
+        const full = await Api.getFullShiftData(shiftId);
+        count = (full.items || []).length;
+      }
+    } catch (err) {
+      window.showToast('Erro ao importar: ' + err.message, 'error');
+      return;
+    }
+
+    let mode = 'append';
+    if (count > 0) {
+      mode = await this.askChoice({
+        title,
+        text: `Este turno já tem ${count === 1 ? '1 parte' : count + ' partes'}.`,
+        options: [
+          { value: 'append', label: 'Acrescentar abaixo', icon: 'plus', style: 'accent' },
+          { value: 'replace', label: 'Substituir', icon: 'trash', style: 'danger' }
+        ]
+      });
+      if (!mode) return;
+    }
+
+    const formData = new FormData();
+    formData.append('mode', mode);
+    formData.append('file', file);
+    try {
+      const r = await Api.request(`/api/shifts/${shiftId}/import-jwlibrary`, { method: 'POST', body: formData });
+      const p = r.partsCount === 1 ? '1 parte importada' : `${r.partsCount} partes importadas`;
+      const m = r.mediasCount === 1 ? '1 mídia' : `${r.mediasCount} mídias`;
+      window.showToast(`${p}, ${m}.`, 'success');
+      AppState.selectShift(dayId, shiftId);
+      UIDirector.renderShiftLabel();
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+    } catch (err) {
+      window.showToast('Erro ao importar: ' + err.message, 'error');
+    }
+  },
+
   initChoice() {
     const modal = document.getElementById('modal-choice');
     if (!modal) return;

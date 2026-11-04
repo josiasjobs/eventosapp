@@ -755,6 +755,7 @@ const UIDirector = {
       if (!opt || opt.disabled) return;
       this.closeFabMenu();
       if (opt.dataset.fab === 'item') Modals.openItemModal();
+      else if (opt.dataset.fab === 'jwlibrary') Modals.importJwLibrary();
       else if (opt.dataset.fab === 'sentinela') Modals.openItemModal(null, { sentinela: true });
       else if (opt.dataset.fab === 'question' && AppState.currentItemId) {
         // prefill § and side from the last question; no afterId, so it appends

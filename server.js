@@ -828,6 +828,43 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
   }
 });
 
+// Import a JW Library backup: one part per playlist, into the chosen shift
+app.post('/api/shifts/:id/import-jwlibrary', authenticate('admin'), upload.single('file'), async (req, res) => {
+  const file = req.file;
+  let tmpDir = null;
+  try {
+    const shiftId = Number(req.params.id);
+    const shift = queries.getShift(shiftId);
+    if (!shift) return res.status(404).json({ error: 'Turno não encontrado.' });
+    if (!file) return res.status(400).json({ error: 'Arquivo .jwlibrary não fornecido.' });
+
+    tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'jwlibrary-'));
+    let playlists;
+    try {
+      const dbPath = await extractUserDb(file.path, tmpDir);
+      playlists = readPlaylists(dbPath);
+    } catch (err) {
+      if (err.message === JWL_INVALID) return res.status(400).json({ error: err.message });
+      throw err;
+    }
+    if (playlists.length === 0) return res.status(400).json({ error: 'Nenhuma playlist com itens neste arquivo.' });
+
+    const replace = req.body.mode === 'replace';
+    const existing = replace ? [] : queries.getItemsByShift(shiftId);
+    const time = (existing.length ? existing[existing.length - 1].scheduled_time : shift.start_time) || '00:00';
+
+    const result = queries.importPlaylistsAsParts(shiftId, playlists, replace, time);
+    broadcast('PROGRAM_UPDATED', { shiftId });
+    return res.json({ success: true, partsCount: result.partsCount, mediasCount: result.mediasCount });
+  } catch (err) {
+    console.error('[IMPORT-JWLIBRARY] Erro:', err);
+    return res.status(500).json({ error: 'Erro ao importar: ' + err.message });
+  } finally {
+    if (tmpDir) { try { await fs.promises.rm(tmpDir, { recursive: true, force: true }); } catch (_) {} }
+    if (file) { try { await fs.promises.unlink(file.path); } catch (_) {} }
+  }
+});
+
 // Fallback to SPA index.html for navigation (Express 5 compatible)
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
