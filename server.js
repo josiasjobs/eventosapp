@@ -15,7 +15,7 @@ const util = require('util');
 
 const { queries } = require('./db');
 const { playlistMediaTitle } = require('./playlist-title');
-const { parseTalkNumber, parsePositiveInt, checkQuestionStep, shiftHasSentinela } = require('./public/js/logic.js');
+const { parseTalkNumber, parsePositiveInt, checkQuestionStep, shiftHasSentinela, isValidPhoto } = require('./public/js/logic.js');
 
 // Validates the talk number (Discurso) of a part: { talkNumber } or { status, error }.
 // The number is optional, must be a positive integer and is unique across the event.
@@ -52,11 +52,14 @@ function checkStep(mediaType, fields, parentItem) {
     }
     const q = checkQuestionStep(fields);
     if (q.error) return { error: q.error };
+    const photo = fields.photo == null ? '' : fields.photo;
+    if (!isValidPhoto(photo)) return { error: 'Foto inválida ou grande demais.' };
+    q.photo = photo;
     return { step: q, title: (raw) => (raw && String(raw).trim()) || '?' };
   }
   const paragraph = parsePositiveInt(fields.paragraph);
   if (paragraph === false) return { error: 'Informe o parágrafo (número inteiro maior que zero).' };
-  return { step: { paragraph, side: '', person: '' }, title: (raw) => String(raw).trim() };
+  return { step: { paragraph, side: '', person: '', photo: '' }, title: (raw) => String(raw).trim() };
 }
 
 const SENTINELA_NEEDS_TALK = 'A Sentinela precisa do número do discurso.';
@@ -81,7 +84,7 @@ const wss = new WebSocketServer({ server });
 const PORT = process.env.PORT || 3000;
 
 // Body parsing
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Detect LAN IP
@@ -737,7 +740,8 @@ app.put('/api/medias/:id', authenticate('admin'), (req, res) => {
   const merged = {
     paragraph: req.body.paragraph !== undefined ? req.body.paragraph : media.paragraph,
     side: req.body.side !== undefined ? req.body.side : media.side,
-    person: req.body.person !== undefined ? req.body.person : media.person
+    person: req.body.person !== undefined ? req.body.person : media.person,
+    photo: req.body.photo !== undefined ? req.body.photo : media.photo
   };
   const stepCheck = checkStep(mediaType, merged, item);
   if (stepCheck.error) return res.status(400).json({ error: stepCheck.error });

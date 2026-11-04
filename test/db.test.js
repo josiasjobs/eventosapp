@@ -65,3 +65,18 @@ test('backup antigo, sem os campos novos, restaura com eles vazios', () => {
   const i = queries.getFullEventBackup().days[0].shifts[0].items[0];
   assert.equal(i.cam_left, null);
 });
+
+test('passo guarda e atualiza a foto; backup leva a foto', () => {
+  // earlier tests restored the event, so the original shiftId no longer exists: use the current one
+  const currentShiftId = queries.getShiftsByDay(queries.getDaysByEvent(queries.getActiveEvent().id)[0].id)[0].id;
+  const itemId = queries.createItem(currentShiftId, 'Foto', '16:00', '', '', 'sentinela', 99, 77);
+  const photo = 'data:image/webp;base64,UklGRg==';
+  const id = queries.createMedia(itemId, '?', 'question', '', 1, { paragraph: 1, side: 'left', person: 'Ana', photo });
+  assert.equal(queries.getMedia(id).photo, photo);
+  queries.updateMedia(id, '?', 'question', '', { paragraph: 1, side: 'left', person: 'Ana', photo: '' });
+  assert.equal(queries.getMedia(id).photo, '');
+  queries.updateMedia(id, '?', 'question', '', { paragraph: 1, side: 'left', person: 'Ana', photo });
+  const backup = queries.getFullEventBackup();
+  const steps = backup.days.flatMap(d => d.shifts).flatMap(s => s.items).find(i => i.title === 'Foto').medias;
+  assert.equal(steps[0].photo, photo);
+});
