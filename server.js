@@ -14,7 +14,7 @@ const fs = require('fs');
 const util = require('util');
 
 const { queries } = require('./db');
-const { playlistMediaTitle } = require('./playlist-title');
+const { readPlaylists, extractUserDb, INVALID: JWL_INVALID } = require('./jwl-reader');
 const { parseTalkNumber, parsePositiveInt, checkQuestionStep, shiftHasSentinela, isValidPhoto } = require('./public/js/logic.js');
 
 // Validates the talk number (Discurso) of a part: { talkNumber } or { status, error }.
@@ -803,139 +803,28 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
 
   if (!file) return res.status(400).json({ error: 'Arquivo .jwlplaylist nao fornecido' });
 
+  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'jwlplaylist-'));
   try {
-    const unzipper = require('unzipper');
-    const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'jwlplaylist-'));
-    await fs.createReadStream(file.path).pipe(unzipper.Extract({ path: tmpDir })).promise();
-    const dbPath = path.join(tmpDir, 'userData.db');
-
-    if (!fs.existsSync(dbPath)) {
-      await fs.promises.rm(tmpDir, { recursive: true, force: true });
-      return res.status(400).json({ error: 'userData.db nao encontrado no pacote' });
-    }
-
-    const sqlite3 = require('sqlite3').verbose();
-    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
-    const dbAll = util.promisify(db.all).bind(db);
-
-    const tables = await dbAll("SELECT name FROM sqlite_master WHERE type='table'");
-    const tableNames = tables.map(t => t.name.toLowerCase());
-    console.log('[IMPORT] Tabelas:', tableNames);
-
-    const imageExts = ['jpg','jpeg','png','webp','gif','bmp','tif','tiff','heic','avif'];
-    const videoExts = ['mp4','m4v','mov','avi','mkv','webm','mpeg','mpg','3gp','ts'];
-    const bibleRegex = /^(?:[1-3]\s+)?(?:[A-Za-z\u00C0-\u00FF]+(?:\s+[A-Za-z\u00C0-\u00FF]+)?)\s+\d+[:.]\d+(?:\s*[-,]\s*\d+)*$/i;
-    let rows = [];
-
-    // ── Estrategia 1: TagMap → PlaylistItem ──────────────────────────────────
-    if (tableNames.includes('tagmap') && tableNames.includes('playlistitem')) {
-      const tmInfo = await dbAll('PRAGMA table_info(TagMap)');
-      const tmCols = tmInfo.map(c => c.name);
-      console.log('[IMPORT] TagMap cols:', tmCols);
-
-      // Descobre qual coluna liga ao PlaylistItem
-      const joinCol = tmCols.find(c =>
-        c.toLowerCase() === 'playlistitemid' ||
-        c.toLowerCase().includes('playlistitem') ||
-        c === 'RefId'
-      ) || tmCols.find(c => c !== 'Id' && c !== 'TagId' && c !== 'Position') || 'PlaylistItemId';
-      console.log('[IMPORT] JoinCol escolhido:', joinCol);
-
-      const imInfo = tableNames.includes('independentmedia')
-        ? await dbAll('PRAGMA table_info(IndependentMedia)') : [];
-      const imCols = imInfo.map(c => c.name);
-      console.log('[IMPORT] IndependentMedia cols:', imCols);
-      const pathField = imCols.includes('FilePath') ? 'im.FilePath'
-                       : imCols.includes('Path') ? 'im.Path' : 'NULL';
-
-      // Descobre a PK real da tabela PlaylistItem
-      const piInfo2 = await dbAll('PRAGMA table_info(PlaylistItem)');
-      const piPK = piInfo2.find(c => c.pk === 1)?.name || 'PlaylistItemId';
-      console.log('[IMPORT] PlaylistItem PK:', piPK);
-
-      rows = await dbAll('SELECT tm.Position, pi.Label, pi.StartTrimOffsetTicks, pi.EndTrimOffsetTicks, pi.EndAction, ' + pathField + ' AS mediaPath FROM TagMap tm JOIN PlaylistItem pi ON tm.' + joinCol + ' = pi.' + piPK + ' LEFT JOIN PlaylistItemIndependentMediaMap pim ON pi.' + piPK + ' = pim.PlaylistItemId LEFT JOIN IndependentMedia im ON pim.IndependentMediaId = im.IndependentMediaId ORDER BY tm.Position ASC')
-        .catch(e => { console.log('[IMPORT] Estrategia 1 erro:', e.message); return []; });
-      console.log('[IMPORT] Estrategia 1 (TagMap):', rows.length, 'rows');
-    }
-
-    // ── Estrategia 2: PlaylistItem direto ────────────────────────────────────
-    if (!rows.length && tableNames.includes('playlistitem')) {
-      const piInfo = await dbAll('PRAGMA table_info(PlaylistItem)');
-      console.log('[IMPORT] PlaylistItem cols:', piInfo.map(c => c.name));
-
-      const imInfo = tableNames.includes('independentmedia')
-        ? await dbAll('PRAGMA table_info(IndependentMedia)') : [];
-      const imCols = imInfo.map(c => c.name);
-      const pathField = imCols.includes('FilePath') ? 'im.FilePath'
-                       : imCols.includes('Path') ? 'im.Path' : 'NULL';
-      const hasMap = tableNames.includes('playlistitemindependentmediamap') && imCols.length > 0;
-
-      // Descobre a PK real da tabela PlaylistItem
-      const piPK = piInfo.find(c => c.pk === 1)?.name || 'PlaylistItemId';
-      console.log('[IMPORT] PlaylistItem PK (estrategia 2):', piPK);
-
-      if (hasMap) {
-        rows = await dbAll('SELECT pi.Label, pi.StartTrimOffsetTicks, pi.EndTrimOffsetTicks, pi.EndAction, ' + pathField + ' AS mediaPath FROM PlaylistItem pi LEFT JOIN PlaylistItemIndependentMediaMap pim ON pi.' + piPK + ' = pim.PlaylistItemId LEFT JOIN IndependentMedia im ON pim.IndependentMediaId = im.IndependentMediaId ORDER BY pi.' + piPK + ' ASC')
-          .catch(e => { console.log('[IMPORT] Estrategia 2a erro:', e.message); return []; });
-      } else {
-        rows = await dbAll('SELECT Label, StartTrimOffsetTicks, EndTrimOffsetTicks, EndAction, NULL AS mediaPath FROM PlaylistItem ORDER BY ' + piPK + ' ASC')
-          .catch(e => { console.log('[IMPORT] Estrategia 2b erro:', e.message); return []; });
-      }
-      console.log('[IMPORT] Estrategia 2 (PlaylistItem direto):', rows.length, 'rows');
-    }
-
-    // ── Debug: dump de todas as tabelas ──────────────────────────────────────
-    if (!rows.length) {
-      for (const tbl of tables) {
-        try {
-          const s = await dbAll('SELECT * FROM "' + tbl.name + '" LIMIT 3');
-          console.log('[IMPORT] Tabela ' + tbl.name + ':', JSON.stringify(s));
-        } catch(e) {
-          console.log('[IMPORT] Erro ao ler ' + tbl.name + ':', e.message);
-        }
-      }
-      db.close();
-      await fs.promises.rm(tmpDir, { recursive: true, force: true });
-      return res.status(400).json({ error: 'Nenhum item encontrado. Verifique os logs do servidor.' });
-    }
-
-    console.log('[IMPORT] Total a importar:', rows.length);
-    console.log('[IMPORT] Primeira row:', JSON.stringify(rows[0]));
+    const dbPath = await extractUserDb(file.path, tmpDir);
+    const playlists = readPlaylists(dbPath);
+    const medias = playlists.flatMap(p => p.medias);
 
     // mode=replace apaga as mídias atuais da parte; qualquer outro valor adiciona abaixo da última
     const replace = req.body.mode === 'replace';
-    const medias = rows.map((row, i) => {
-      const label = (row.Label || '').trim();
-      let type = 'other';
-      if (row.mediaPath) {
-        const ext = path.extname(row.mediaPath).toLowerCase().replace('.', '');
-        if (imageExts.includes(ext)) type = 'image';
-        else if (videoExts.includes(ext)) type = 'video';
-      }
-      if (type === 'other' && bibleRegex.test(label)) type = 'bible';
-
-      // Nome + regras do JW Library ("Editado", "Continuar", "Repetir"); observação em branco
-      const baseName = label || (row.mediaPath ? path.basename(row.mediaPath, path.extname(row.mediaPath)) : ('Mídia ' + (i + 1)));
-      const finalName = playlistMediaTitle(baseName, row);
-
-      console.log('[IMPORT] #' + (i + 1) + ': "' + finalName + '" tipo=' + type);
-      return { title: finalName, type, reference: '' };
-    });
-
     // Uma playlist vazia nunca apaga as mídias existentes
     if (medias.length > 0) queries.importMedias(Number(itemId), medias, replace);
 
-    db.close();
-    await fs.promises.rm(tmpDir, { recursive: true, force: true });
-    try { await fs.promises.unlink(file.path); } catch (_) {}
     const item = queries.getItem(itemId);
     broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId: Number(itemId) });
-    return res.json({ success: true, importedCount: rows.length });
+    return res.json({ success: true, importedCount: medias.length });
 
   } catch (err) {
+    if (err.message === JWL_INVALID) return res.status(400).json({ error: err.message });
     console.error('[IMPORT] Erro:', err);
-    try { await fs.promises.unlink(req.file.path); } catch (_) {}
     return res.status(500).json({ error: 'Erro ao importar: ' + err.message });
+  } finally {
+    try { await fs.promises.rm(tmpDir, { recursive: true, force: true }); } catch (_) {}
+    try { await fs.promises.unlink(file.path); } catch (_) {}
   }
 });
 
