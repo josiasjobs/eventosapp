@@ -165,18 +165,19 @@ function setupEventListeners() {
         window.showToast('Sem partes neste turno', 'error');
         return;
       }
-      const choice = await Modals.askChoice({
+      const hasSentinela = PrintProgram.itemsFor(allItems, 'sentinela').length > 0;
+      const mode = await Modals.askChoice({
         title: 'Imprimir',
         options: [
           { value: 'all', label: 'Roteiro completo', icon: 'list', style: 'accent' },
-          { value: 'talks', label: 'Só discursos', icon: 'mic-vocal' }
+          { value: 'talks', label: 'Só discursos', icon: 'mic-vocal' },
+          ...(hasSentinela ? [{ value: 'sentinela', label: 'Sentinela', icon: 'book' }] : [])
         ]
       });
-      if (!choice) return;
-      const onlyTalks = choice === 'talks';
-      const items = onlyTalks ? allItems.filter(i => i.talk_number) : allItems;
+      if (!mode) return;
+      const items = PrintProgram.itemsFor(allItems, mode);
       if (items.length === 0) {
-        window.showToast('Nenhum discurso neste turno', 'error');
+        window.showToast(mode === 'talks' ? 'Nenhum discurso neste turno' : 'Sem partes neste turno', 'error');
         return;
       }
       const day = (AppState.days || []).find(d => d.id === AppState.selectedDayId);
@@ -186,7 +187,7 @@ function setupEventListeners() {
         eventName: AppState.event ? AppState.event.name : '',
         dayLabel: day ? day.label : '',
         shiftName: shift ? shift.name : '',
-        onlyTalks,
+        mode,
         items
       });
       if (!opened) window.showToast('O navegador bloqueou a nova aba. Libere pop-ups para este endereço.', 'error');
