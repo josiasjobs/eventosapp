@@ -118,7 +118,7 @@ test('importPlaylistsAsParts substitui as partes do turno', () => {
   queries.setShiftCurrentItem(sid, old);
   queries.importPlaylistsAsParts(sid, [{ name: 'Nova', medias: [{ title: 'm', type: 'other', reference: '' }] }], true, '10:00');
   assert.deepEqual(queries.getItemsByShift(sid).map(i => i.title), ['Nova']);
-  assert.equal(queries.getMedia ? queries.getMediasByItem(old).length : 0, 0);
+  assert.equal(queries.getMediasByItem(old).length, 0);
   assert.equal(queries.getShift(sid).current_item_id, null);
 });
 
