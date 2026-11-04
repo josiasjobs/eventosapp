@@ -115,7 +115,7 @@
     // Box, type and title of a media (the body of a printed media row)
     const mediaInner = (m) => {
       const type = TYPE_LABELS[m.type] ? m.type : 'other';
-      const notes = Logic.mediaNotes(m.reference);
+      const notes = Logic.mediaNotesText(m);
       return `
           <span class="box"></span>
           <span class="type">${icon(typeIcons[type], 16)}<span>${esc(TYPE_LABELS[type])}</span></span>

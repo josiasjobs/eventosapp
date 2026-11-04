@@ -182,5 +182,17 @@
     return (items || []).some((i) => i.activity_type === 'sentinela' && i.id !== exceptId);
   }
 
-  return { shiftHasSentinela, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials };
+  // Theater and interview keep the camera preset in the notes field
+  const PRESET_TYPES = ['theater', 'interview'];
+  function notesLabel(type) {
+    return PRESET_TYPES.includes(type) ? 'Camera - Preset' : 'Observações';
+  }
+
+  // Notes as shown on screen and on paper: labelled when they hold a camera preset
+  function mediaNotesText(media) {
+    const notes = mediaNotes(media.reference);
+    return notes && PRESET_TYPES.includes(media.type) ? `${notesLabel(media.type)}: ${notes}` : notes;
+  }
+
+  return { notesLabel, mediaNotesText, shiftHasSentinela, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials };
 });

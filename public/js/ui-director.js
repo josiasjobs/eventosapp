@@ -136,7 +136,7 @@ const UIDirector = {
   mediaRowHtml(media, extraClass = '') {
     const typeInfo = this.getMediaTypeInfo(media.type);
     const done = !!media.completed;
-    const notes = Logic.mediaNotes(media.reference);
+    const notes = Logic.mediaNotesText(media);
     return `
           <div class="media-row${done ? ' is-done' : ''}${extraClass}" data-media-id="${Number(media.id)}"
                role="button" tabindex="0" aria-pressed="${done}">

@@ -171,3 +171,9 @@ test('Sentinela: texto do banco é escapado', () => {
   assert.doesNotMatch(html, /<b>X<\/b>/);
   assert.match(html, /&lt;b&gt;X&lt;\/b&gt;/);
 });
+
+test('roteiro mostra "Camera - Preset" nas mídias de teatro e entrevista', () => {
+  const html = buildProgramHtml({ ...data, items: [{ scheduled_time: '10:00', title: 'Drama', speaker: '', description: '',
+    medias: [{ type: 'theater', title: 'Cena 1', reference: 'CAM 2 - P4' }] }] });
+  assert.match(html, /Camera - Preset: CAM 2 - P4/);
+});

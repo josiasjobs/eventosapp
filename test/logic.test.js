@@ -234,3 +234,12 @@ test('shiftHasSentinela: um turno aceita só uma Sentinela', () => {
   assert.equal(L.shiftHasSentinela([{ id: 1, activity_type: '' }]), false);
   assert.equal(L.shiftHasSentinela(undefined), false);
 });
+
+test('notas da mídia: teatro e entrevista mostram "Camera - Preset"', () => {
+  assert.equal(L.notesLabel('theater'), 'Camera - Preset');
+  assert.equal(L.notesLabel('interview'), 'Camera - Preset');
+  assert.equal(L.notesLabel('bible'), 'Observações');
+  assert.equal(L.mediaNotesText({ type: 'theater', reference: 'CAM 2 - P4' }), 'Camera - Preset: CAM 2 - P4');
+  assert.equal(L.mediaNotesText({ type: 'interview', reference: '' }), '');
+  assert.equal(L.mediaNotesText({ type: 'image', reference: 'Projetor 2' }), 'Projetor 2');
+});
