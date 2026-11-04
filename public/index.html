@@ -59,6 +59,8 @@
       <div class="fab-menu" id="fab-menu" role="menu" hidden>
         <button type="button" class="fab-option" data-fab="item" role="menuitem"><span data-icon="list"></span><span>Parte</span></button>
         <button type="button" class="fab-option" data-fab="media" role="menuitem"><span data-icon="file"></span><span>Mídia</span></button>
+        <button type="button" class="fab-option" data-fab="sentinela" role="menuitem"><span data-icon="book"></span><span>Sentinela</span></button>
+        <button type="button" class="fab-option" data-fab="question" role="menuitem" hidden><span data-icon="user"></span><span>Pergunta</span></button>
       </div>
       <button type="button" class="fab-btn" id="fab-add" title="Adicionar" aria-label="Adicionar"
         aria-haspopup="menu" aria-expanded="false" data-icon="plus"></button>
@@ -164,6 +166,20 @@
             <input type="number" class="form-input talk-number" id="item-talk-number" name="itemTalkNumber"
               min="1" step="1" inputmode="numeric" placeholder="Nº" aria-label="Número do discurso" hidden>
           </div>
+          <div class="form-group cam-group" hidden>
+            <div class="cam-field">
+              <label class="form-label" for="item-cam-left">Câm. esquerda</label>
+              <input type="number" class="form-input" id="item-cam-left" name="itemCamLeft" min="1" step="1" inputmode="numeric">
+            </div>
+            <div class="cam-field">
+              <label class="form-label" for="item-cam-right">Câm. direita</label>
+              <input type="number" class="form-input" id="item-cam-right" name="itemCamRight" min="1" step="1" inputmode="numeric">
+            </div>
+            <div class="cam-field">
+              <label class="form-label" for="item-cam-speaker">Câm. orador</label>
+              <input type="number" class="form-input" id="item-cam-speaker" name="itemCamSpeaker" min="1" step="1" inputmode="numeric">
+            </div>
+          </div>
           <div class="form-group">
             <label class="form-label" for="item-time">Horário</label>
             <input type="time" class="form-input" id="item-time" name="itemScheduledTime" required>
@@ -214,6 +230,51 @@
             <label class="form-label" for="media-ref">Observações</label>
             <input type="text" class="form-input" id="media-ref" name="mediaReference" autocomplete="off">
           </div>
+          <div class="form-group media-paragraph-group" hidden>
+            <label class="form-label" for="media-paragraph">§ Parágrafo</label>
+            <input type="number" class="form-input" id="media-paragraph" name="mediaParagraph" min="1" step="1" inputmode="numeric" autocomplete="off">
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: QUESTION EDITOR (Sentinela)             -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-question-editor" data-autofocus>
+    <div class="modal-dialog">
+      <form id="form-question" onsubmit="event.preventDefault(); Modals.submitQuestion(this);">
+        <div class="modal-header">
+          <h2 class="modal-title" id="question-modal-title">Nova pergunta</h2>
+          <button type="button" class="icon-btn" title="Fechar" aria-label="Fechar" data-icon="x"
+            onclick="Modals.close('modal-question-editor')"></button>
+          <button type="submit" class="icon-btn btn-accent" title="Salvar" aria-label="Salvar"
+            data-icon="check"></button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="q-paragraph">§ Parágrafo</label>
+            <input type="number" class="form-input" id="q-paragraph" name="qParagraph" min="1" step="1" inputmode="numeric" required>
+          </div>
+          <div class="form-group">
+            <div class="side-picker" role="radiogroup" aria-label="Lado">
+              <button type="button" class="side-btn" role="radio" data-side="left" aria-checked="false">ESQUERDA</button>
+              <button type="button" class="side-btn" role="radio" data-side="right" aria-checked="false">DIREITA</button>
+            </div>
+            <input type="hidden" name="qSide" value="">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="q-person">Quem responde</label>
+            <input type="text" class="form-input" id="q-person" name="qPerson" list="question-people" autocomplete="off" required>
+            <datalist id="question-people"></datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="q-title">Pergunta</label>
+            <input type="text" class="form-input" id="q-title" name="qTitle" value="?" autocomplete="off">
+          </div>
+          <button type="button" class="btn btn-secondary" id="question-save-next"
+            onclick="Modals.submitQuestion(this.form, { next: true })">Salvar e próxima</button>
         </div>
       </form>
     </div>

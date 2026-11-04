@@ -563,6 +563,8 @@ const UIDirector = {
       if (!opt || opt.disabled) return;
       this.closeFabMenu();
       if (opt.dataset.fab === 'item') Modals.openItemModal();
+      else if (opt.dataset.fab === 'sentinela') Modals.openItemModal(null, { sentinela: true });
+      else if (opt.dataset.fab === 'question' && AppState.currentItemId) Modals.openQuestionModal(AppState.currentItemId);
       else if (opt.dataset.fab === 'media' && AppState.currentItemId) Modals.openMediaModal(AppState.currentItemId);
     });
   },
@@ -573,6 +575,9 @@ const UIDirector = {
     if (!fab || !menu) return;
     const mediaOpt = menu.querySelector('[data-fab="media"]');
     if (mediaOpt) mediaOpt.disabled = !AppState.getCurrentItem();
+    const questionOpt = menu.querySelector('[data-fab="question"]');
+    const current = AppState.getCurrentItem();
+    if (questionOpt) questionOpt.hidden = !(current && current.activity_type === 'sentinela');
     menu.hidden = false;
     fab.setAttribute('aria-expanded', 'true');
   },

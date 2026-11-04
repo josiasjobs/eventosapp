@@ -138,6 +138,7 @@ function setupEventListeners() {
   Modals.initMediaTypePicker();
   Modals.initChoice();
   Modals.initTalkField();
+  Modals.initQuestionForm();
   const shiftBtn = document.getElementById('btn-shift-picker');
   if (shiftBtn) {
     shiftBtn.addEventListener('click', () => Modals.openShiftPicker());
