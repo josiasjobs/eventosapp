@@ -296,6 +296,28 @@ const queries = {
     return res.lastInsertRowid;
   },
 
+  // Inserts right after the anchor step (same item) and shifts later steps; unknown anchor appends. One transaction.
+  createMediaAfter(itemId, afterId, title, type, reference, step = {}) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      const anchor = afterId ? this.getMedia(Number(afterId)) : null;
+      const valid = anchor && anchor.item_id === Number(itemId);
+      let orderNum;
+      if (valid) {
+        orderNum = anchor.order_num + 1;
+        db.prepare('UPDATE medias SET order_num = order_num + 1 WHERE item_id = ? AND order_num >= ?').run(itemId, orderNum);
+      } else {
+        orderNum = this.getMediasByItem(itemId).length + 1;
+      }
+      const id = this.createMedia(itemId, title, type, reference, orderNum, step);
+      db.exec('COMMIT;');
+      return id;
+    } catch (e) {
+      db.exec('ROLLBACK;');
+      throw e;
+    }
+  },
+
   updateMedia(id, title, type, reference, step = {}) {
     return db.prepare(`
       UPDATE medias

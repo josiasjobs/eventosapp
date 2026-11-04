@@ -30,6 +30,21 @@ test('importar com Substituir mantém as perguntas', () => {
   assert.deepEqual(steps.map(s => [s.title, s.order_num]), [['?', 1], ['Nova', 2]]);
 });
 
+test('createMediaAfter insere logo depois do passo âncora e renumera', () => {
+  const itemId = queries.createItem(shiftId, 'S2', '15:00', '', '', 'sentinela', 3, 5);
+  const a = queries.createMedia(itemId, '?', 'question', '', 1, { paragraph: 1, side: 'left', person: 'A' });
+  const b = queries.createMedia(itemId, '?', 'question', '', 2, { paragraph: 1, side: 'left', person: 'B' });
+  queries.createMedia(itemId, 'Vídeo', 'video', '', 3);
+  const n = queries.createMediaAfter(itemId, b, '?', 'question', '', { paragraph: 1, side: 'left', person: 'N' });
+  const steps = queries.getMediasByItem(itemId);
+  assert.deepEqual(steps.map(s => [s.person || s.title, s.order_num]), [['A', 1], ['B', 2], ['N', 3], ['Vídeo', 4]]);
+  assert.equal(steps[2].id, n);
+  // foreign/unknown anchor appends
+  const m = queries.createMediaAfter(itemId, 999999, '?', 'question', '', { paragraph: 2, side: 'right', person: 'M' });
+  assert.equal(queries.getMedia(m).order_num, 5);
+  assert.equal(a > 0, true);
+});
+
 test('backup e restauração levam os campos novos', () => {
   const backup = queries.getFullEventBackup();
   const item = backup.days[0].shifts[0].items.find(i => i.activity_type === 'sentinela');

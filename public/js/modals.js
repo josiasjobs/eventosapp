@@ -456,17 +456,19 @@ const Modals = {
   questionEditId: null,
   questionTargetItemId: null,
 
-  // preset: { paragraph, side } prefilled on create (used by "Salvar e próxima" and the director view)
+  // preset: { paragraph, side, afterId, people } prefilled (afterId: insert after that step; people: names saved this session) on create (used by "Salvar e próxima" and the director view)
   openQuestionModal(itemId, stepId = null, preset = {}) {
     this.questionTargetItemId = itemId;
     this.questionEditId = stepId;
+    this.questionAfterId = stepId ? null : (preset.afterId || null);
+    this.questionExtraPeople = preset.people || [];
     const form = document.getElementById('form-question');
     form.reset();
     const item = AppState.shiftData.items.find(i => i.id === Number(itemId));
     const steps = (item && item.medias) || [];
 
     const list = document.getElementById('question-people');
-    const names = [...new Set(steps.map(m => (m.person || '').trim()).filter(Boolean))];
+    const names = [...new Set([...steps.map(m => m.person), ...(preset.people || [])].map(n => (n || '').trim()).filter(Boolean))];
     list.innerHTML = names.map(n => `<option value="${Logic.escapeHtml(n)}"></option>`).join('');
 
     document.getElementById('question-modal-title').textContent = stepId ? 'Editar pergunta' : 'Nova pergunta';
@@ -524,15 +526,21 @@ const Modals = {
     };
     const itemId = this.questionTargetItemId;
 
+    let newId = null;
     try {
       if (this.questionEditId) {
         await Api.updateMedia(this.questionEditId, body);
       } else {
-        await Api.createMedia({ itemId, ...body });
+        const created = await Api.createMedia({ itemId, ...body, afterId: this.questionAfterId || undefined });
+        newId = created && created.mediaId;
       }
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
       if (next) {
-        this.openQuestionModal(itemId, null, { paragraph: checked.paragraph, side: checked.side });
+        this.openQuestionModal(itemId, null, {
+          paragraph: checked.paragraph, side: checked.side,
+          afterId: newId || this.questionAfterId,
+          people: [...this.questionExtraPeople, checked.person]
+        });
       } else {
         this.close('modal-question-editor');
       }

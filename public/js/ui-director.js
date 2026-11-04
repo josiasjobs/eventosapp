@@ -90,7 +90,7 @@ const UIDirector = {
         : this.sentinelaCardsHtml(currentItem, stepId);
     } else {
       mediasHtml = medias.length === 0
-        ? this.emptyStateHtml('file', 'Sem mídias')
+        ? this.emptyStateHtml('file', currentItem.activity_type === 'sentinela' ? 'Sem passos' : 'Sem mídias')
         : medias.map(media => this.mediaRowHtml(media)).join('');
     }
     const speakerCam = sentinela && this.hasCam(currentItem.cam_speaker)
@@ -229,7 +229,7 @@ const UIDirector = {
         const cam = this.sideCam(item, group.side);
         const parts = [group.paragraph != null ? `§${group.paragraph}` : '', this.sideLabel(group.side), cam !== null ? `CAM ${cam}` : '']
           .filter(Boolean).join(' · ');
-        const preset = `data-paragraph="${group.paragraph != null ? Number(group.paragraph) : ''}" data-side="${uiEsc(group.side)}"`;
+        const preset = `data-paragraph="${group.paragraph != null ? Number(group.paragraph) : ''}" data-side="${uiEsc(group.side)}" data-after-id="${Number(group.steps[group.steps.length - 1].id)}"`;
         head = `
           <div class="sent-head">
             <span class="sent-head-label">${uiEsc(parts)}</span>
@@ -400,7 +400,9 @@ const UIDirector = {
         case 'step-menu': if (itemId && stepId) this.openQuestionMenu(actionEl, itemId, stepId); break;
         case 'add-question': {
           const paragraph = actionEl.dataset.paragraph ? Number(actionEl.dataset.paragraph) : null;
-          if (itemId) Modals.openQuestionModal(itemId, null, { paragraph, side: actionEl.dataset.side });
+          if (itemId) Modals.openQuestionModal(itemId, null, {
+            paragraph, side: actionEl.dataset.side, afterId: Number(actionEl.dataset.afterId) || null
+          });
           break;
         }
       }
@@ -746,7 +748,12 @@ const UIDirector = {
       this.closeFabMenu();
       if (opt.dataset.fab === 'item') Modals.openItemModal();
       else if (opt.dataset.fab === 'sentinela') Modals.openItemModal(null, { sentinela: true });
-      else if (opt.dataset.fab === 'question' && AppState.currentItemId) Modals.openQuestionModal(AppState.currentItemId);
+      else if (opt.dataset.fab === 'question' && AppState.currentItemId) {
+        // prefill § and side from the last question; no afterId, so it appends
+        const cur = AppState.getCurrentItem();
+        const last = ((cur && cur.medias) || []).filter(m => m.type === 'question').pop();
+        Modals.openQuestionModal(AppState.currentItemId, null, last ? { paragraph: last.paragraph, side: last.side } : {});
+      }
       else if (opt.dataset.fab === 'media' && AppState.currentItemId) Modals.openMediaModal(AppState.currentItemId);
     });
   },

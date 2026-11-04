@@ -696,7 +696,10 @@ app.post('/api/medias', authenticate('admin'), (req, res) => {
   const currentMedias = queries.getMediasByItem(itemId);
   const nextOrder = currentMedias.length + 1;
 
-  const mediaId = queries.createMedia(itemId, stepCheck.title(title), mediaType, reference ? reference.trim() : '', nextOrder, stepCheck.step);
+  const afterId = Number(req.body.afterId);
+  const mediaId = Number.isInteger(afterId) && afterId > 0
+    ? queries.createMediaAfter(itemId, afterId, stepCheck.title(title), mediaType, reference ? reference.trim() : '', stepCheck.step)
+    : queries.createMedia(itemId, stepCheck.title(title), mediaType, reference ? reference.trim() : '', nextOrder, stepCheck.step);
 
   const item = parentItem;
   broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId });
