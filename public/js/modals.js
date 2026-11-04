@@ -197,16 +197,22 @@ const Modals = {
   // ITEM MODAL (CREATE / EDIT) - RF-06
   // ==========================================
   itemEditId: null,
+  itemSentinela: false,
 
-  openItemModal(itemId = null) {
+  // A Sentinela is requested by opts.sentinela (new) or recognised on the item (edit)
+  openItemModal(itemId = null, { sentinela = false } = {}) {
     this.itemEditId = itemId;
     const titleEl = document.getElementById('item-modal-title');
     const form = document.getElementById('form-item');
     form.reset();
 
+    const found = itemId ? AppState.shiftData.items.find(i => i.id === Number(itemId)) : null;
+    this.itemSentinela = !!sentinela || !!(found && found.activity_type === 'sentinela');
+    const sent = this.itemSentinela;
+
     if (itemId) {
-      titleEl.textContent = 'Editar parte';
-      const item = AppState.shiftData.items.find(i => i.id === Number(itemId));
+      titleEl.textContent = sent ? 'Editar Sentinela' : 'Editar parte';
+      const item = found;
       if (item) {
         form.itemTitle.value = item.title || '';
         form.itemScheduledTime.value = item.scheduled_time || '';
@@ -214,15 +220,24 @@ const Modals = {
         form.itemDescription.value = item.description || '';
         form.itemIsTalk.checked = !!item.talk_number;
         form.itemTalkNumber.value = item.talk_number || '';
+        form.itemCamLeft.value = item.cam_left || '';
+        form.itemCamRight.value = item.cam_right || '';
+        form.itemCamSpeaker.value = item.cam_speaker || '';
       }
     } else {
-      titleEl.textContent = 'Nova parte';
+      titleEl.textContent = sent ? 'Nova Sentinela' : 'Nova parte';
+      if (sent) form.itemTitle.value = 'A Sentinela';
       // Default scheduled time suggestion based on last item
       const lastItem = AppState.shiftData.items[AppState.shiftData.items.length - 1];
       if (lastItem && lastItem.scheduled_time) {
         form.itemScheduledTime.value = lastItem.scheduled_time;
       }
     }
+
+    // Sentinela: cameras shown, "Discurso" box hidden but checked (the number is required)
+    form.querySelector('.cam-group').hidden = !sent;
+    form.querySelector('.talk-group .check-label').hidden = sent;
+    if (sent) form.itemIsTalk.checked = true;
 
     this.syncTalkField(form);
     this.open('modal-item-editor');
@@ -246,15 +261,22 @@ const Modals = {
 
   // Pure payload builder; activity_type has no field, so edit sends the original back.
   buildItemPayload(form, original) {
-    return {
+    const payload = {
       title: form.itemTitle.value.trim(),
       scheduledTime: form.itemScheduledTime.value.trim(),
       speaker: form.itemSpeaker.value.trim(),
-      activityType: original ? (original.activity_type || '') : '',
+      activityType: this.itemSentinela ? 'sentinela' : (original ? (original.activity_type || '') : ''),
       description: form.itemDescription.value.trim(),
       // '' clears the number when "Discurso" is unchecked
       talkNumber: form.itemIsTalk.checked ? form.itemTalkNumber.value.trim() : ''
     };
+    if (this.itemSentinela) {
+      // '' clears a camera
+      payload.camLeft = form.itemCamLeft.value.trim();
+      payload.camRight = form.itemCamRight.value.trim();
+      payload.camSpeaker = form.itemCamSpeaker.value.trim();
+    }
+    return payload;
   },
 
   async submitItem(form) {
@@ -278,6 +300,16 @@ const Modals = {
       window.showToast('Informe o número do discurso (inteiro maior que zero).', 'warning');
       return;
     }
+    if (this.itemSentinela) {
+      const cams = [['camLeft', form.itemCamLeft], ['camRight', form.itemCamRight], ['camSpeaker', form.itemCamSpeaker]];
+      for (const [key, input] of cams) {
+        if (Logic.parsePositiveInt(payload[key]) === false) {
+          input.focus();
+          window.showToast('Câmera deve ser um número inteiro maior que zero.', 'warning');
+          return;
+        }
+      }
+    }
 
     try {
       if (this.itemEditId) {
@@ -297,6 +329,7 @@ const Modals = {
   // ==========================================
   mediaEditId: null,
   mediaTargetItemId: null,
+  mediaSentinela: false,
 
   openMediaModal(itemId, mediaId = null) {
     this.mediaTargetItemId = itemId;
@@ -313,11 +346,16 @@ const Modals = {
         form.mediaTitle.value = media.title || '';
         this.setMediaType(form, media.type || 'other');
         form.mediaReference.value = Logic.mediaNotes(media.reference);
+        form.mediaParagraph.value = media.paragraph || '';
       }
     } else {
       titleEl.textContent = 'Nova mídia';
       this.setMediaType(form, 'bible');
     }
+
+    const parent = AppState.shiftData.items.find(i => i.id === Number(itemId));
+    this.mediaSentinela = !!(parent && parent.activity_type === 'sentinela');
+    form.querySelector('.media-paragraph-group').hidden = !this.mediaSentinela;
 
     this.open('modal-media-editor');
   },
@@ -328,6 +366,8 @@ const Modals = {
     form.querySelectorAll('.type-picker [role="radio"]').forEach(btn => {
       btn.setAttribute('aria-checked', String(btn.dataset.type === type));
     });
+    const refLabel = form.querySelector('label[for="media-ref"]');
+    if (refLabel) refLabel.textContent = Logic.notesLabel(type);
   },
 
   initMediaTypePicker() {
@@ -371,11 +411,21 @@ const Modals = {
     const title = form.mediaTitle.value.trim();
     const type = form.mediaType.value;
     const reference = form.mediaReference.value.trim();
+    const extra = {};
 
     if (!title) {
       form.mediaTitle.focus();
       window.showToast('Informe o título da mídia.', 'warning');
       return;
+    }
+    if (this.mediaSentinela) {
+      const paragraph = form.mediaParagraph.value.trim();
+      if (Logic.parsePositiveInt(paragraph) === false) {
+        form.mediaParagraph.focus();
+        window.showToast('Informe o parágrafo (número inteiro maior que zero).', 'warning');
+        return;
+      }
+      extra.paragraph = paragraph;
     }
 
     try {
@@ -383,18 +433,119 @@ const Modals = {
         await Api.updateMedia(this.mediaEditId, {
           title,
           type,
-          reference
+          reference,
+          ...extra
         });
       } else {
         await Api.createMedia({
           itemId: this.mediaTargetItemId,
           title,
           type,
-          reference
+          reference,
+          ...extra
         });
       }
       this.close('modal-media-editor');
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+    } catch (err) {
+      window.showToast(err.message, 'error');
+    }
+  },
+
+  // ==========================================
+  // QUESTION MODAL (Sentinela step)
+  // ==========================================
+  questionEditId: null,
+  questionTargetItemId: null,
+
+  // preset: { paragraph, side, afterId, people } prefilled (afterId: insert after that step; people: names saved this session) on create (used by "Salvar e próxima" and the director view)
+  openQuestionModal(itemId, stepId = null, preset = {}) {
+    this.questionTargetItemId = itemId;
+    this.questionEditId = stepId;
+    this.questionAfterId = stepId ? null : (preset.afterId || null);
+    this.questionExtraPeople = preset.people || [];
+    const form = document.getElementById('form-question');
+    form.reset();
+    const item = AppState.shiftData.items.find(i => i.id === Number(itemId));
+    const steps = (item && item.medias) || [];
+
+    const list = document.getElementById('question-people');
+    const names = [...new Set([...steps.map(m => m.person), ...(preset.people || [])].map(n => (n || '').trim()).filter(Boolean))];
+    list.innerHTML = names.map(n => `<option value="${Logic.escapeHtml(n)}"></option>`).join('');
+
+    document.getElementById('question-modal-title').textContent = stepId ? 'Editar pergunta' : 'Nova pergunta';
+    let paragraph = preset.paragraph, side = preset.side, person = '', title = '?';
+    if (stepId) {
+      const step = steps.find(m => m.id === Number(stepId));
+      if (step) {
+        paragraph = step.paragraph; side = step.side; person = step.person || ''; title = step.title || '?';
+      }
+    }
+    form.qParagraph.value = paragraph || '';
+    this.setQuestionSide(form, side);
+    form.qPerson.value = person;
+    form.qTitle.value = title;
+
+    this.open('modal-question-editor');
+    form.qPerson.focus();
+  },
+
+  // Selects a side in the picker and mirrors it into the hidden input.
+  setQuestionSide(form, side) {
+    const value = side === 'left' || side === 'right' ? side : '';
+    form.qSide.value = value;
+    form.querySelectorAll('.side-picker [role="radio"]').forEach(btn => {
+      btn.setAttribute('aria-checked', String(btn.dataset.side === value));
+    });
+  },
+
+  initQuestionForm() {
+    const picker = document.querySelector('#form-question .side-picker');
+    if (!picker) return;
+    picker.addEventListener('click', e => {
+      const btn = e.target.closest('[role="radio"]');
+      if (btn) this.setQuestionSide(btn.closest('form'), btn.dataset.side);
+    });
+  },
+
+  // next: save, then reopen with the same § and side, empty person, "?" as question
+  async submitQuestion(form, { next = false } = {}) {
+    const checked = Logic.checkQuestionStep({
+      paragraph: form.qParagraph.value,
+      side: form.qSide.value,
+      person: form.qPerson.value
+    });
+    if (checked.error) {
+      window.showToast(checked.error, 'warning');
+      return;
+    }
+    const body = {
+      type: 'question',
+      title: form.qTitle.value.trim() || '?',
+      paragraph: checked.paragraph,
+      side: checked.side,
+      person: checked.person
+    };
+    const itemId = this.questionTargetItemId;
+
+    let newId = null;
+    try {
+      if (this.questionEditId) {
+        await Api.updateMedia(this.questionEditId, body);
+      } else {
+        const created = await Api.createMedia({ itemId, ...body, afterId: this.questionAfterId || undefined });
+        newId = created && created.mediaId;
+      }
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+      if (next) {
+        this.openQuestionModal(itemId, null, {
+          paragraph: checked.paragraph, side: checked.side,
+          afterId: newId || this.questionAfterId,
+          people: [...this.questionExtraPeople, checked.person]
+        });
+      } else {
+        this.close('modal-question-editor');
+      }
     } catch (err) {
       window.showToast(err.message, 'error');
     }

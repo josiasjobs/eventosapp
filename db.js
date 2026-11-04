@@ -12,7 +12,8 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const dbPath = path.join(dataDir, 'eventos.db');
+// EVENTOS_DB_PATH lets tests and dev runs use a throwaway database
+const dbPath = process.env.EVENTOS_DB_PATH || path.join(dataDir, 'eventos.db');
 const db = new DatabaseSync(dbPath);
 
 // Enable Foreign Keys & Write-Ahead Logging (WAL) for high concurrency
@@ -112,6 +113,22 @@ function initSchema() {
   } catch (e) {
     // Column already exists
   }
+  // Sentinela: cameras per part (which person each one films), question steps per media
+  for (const sql of [
+    'ALTER TABLE items ADD COLUMN cam_left INTEGER',
+    'ALTER TABLE items ADD COLUMN cam_right INTEGER',
+    'ALTER TABLE items ADD COLUMN cam_speaker INTEGER',
+    'ALTER TABLE medias ADD COLUMN paragraph INTEGER',
+    "ALTER TABLE medias ADD COLUMN side TEXT DEFAULT ''",
+    "ALTER TABLE medias ADD COLUMN person TEXT DEFAULT ''",
+    "ALTER TABLE medias ADD COLUMN photo TEXT DEFAULT ''"
+  ]) {
+    try {
+      db.prepare(sql).run();
+    } catch (e) {
+      // Column already exists
+    }
+  }
 }
 
 initSchema();
@@ -209,21 +226,25 @@ const queries = {
     return db.prepare('SELECT * FROM items WHERE id = ?').get(id);
   },
 
-  createItem(shiftId, title, scheduledTime, description, speaker, activityType, orderNum, talkNumber = null) {
+  createItem(shiftId, title, scheduledTime, description, speaker, activityType, orderNum, talkNumber = null, cams = {}) {
     const res = db.prepare(`
-      INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, talk_number)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(shiftId, title, scheduledTime, description || '', speaker || '', activityType || '', orderNum, talkNumber);
+      INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, talk_number,
+                         cam_left, cam_right, cam_speaker)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(shiftId, title, scheduledTime, description || '', speaker || '', activityType || '', orderNum, talkNumber,
+      cams.left ?? null, cams.right ?? null, cams.speaker ?? null);
     return res.lastInsertRowid;
   },
 
-  updateItem(id, title, scheduledTime, description, speaker, activityType, talkNumber = null) {
+  updateItem(id, title, scheduledTime, description, speaker, activityType, talkNumber = null, cams = {}) {
     return db.prepare(`
       UPDATE items
       SET title = ?, scheduled_time = ?, description = ?, speaker = ?, activity_type = ?, talk_number = ?,
+          cam_left = ?, cam_right = ?, cam_speaker = ?,
           updated_at = datetime('now', 'localtime')
       WHERE id = ?
-    `).run(title, scheduledTime, description || '', speaker || '', activityType || '', talkNumber, id);
+    `).run(title, scheduledTime, description || '', speaker || '', activityType || '', talkNumber,
+      cams.left ?? null, cams.right ?? null, cams.speaker ?? null, id);
   },
 
   // Another part of the same event (the shift's event) that already uses this talk number
@@ -267,20 +288,43 @@ const queries = {
     return db.prepare('SELECT * FROM medias WHERE id = ?').get(id);
   },
 
-  createMedia(itemId, title, type, reference, orderNum) {
+  createMedia(itemId, title, type, reference, orderNum, step = {}) {
     const res = db.prepare(`
-      INSERT INTO medias (item_id, title, type, reference, order_num, completed)
-      VALUES (?, ?, ?, ?, ?, 0)
-    `).run(itemId, title, type, reference || '', orderNum);
+      INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
+    `).run(itemId, title, type, reference || '', orderNum, step.paragraph ?? null, step.side || '', step.person || '');
     return res.lastInsertRowid;
   },
 
-  updateMedia(id, title, type, reference) {
+  // Inserts right after the anchor step (same item) and shifts later steps; unknown anchor appends. One transaction.
+  createMediaAfter(itemId, afterId, title, type, reference, step = {}) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      const anchor = afterId ? this.getMedia(Number(afterId)) : null;
+      const valid = anchor && anchor.item_id === Number(itemId);
+      let orderNum;
+      if (valid) {
+        orderNum = anchor.order_num + 1;
+        db.prepare('UPDATE medias SET order_num = order_num + 1 WHERE item_id = ? AND order_num >= ?').run(itemId, orderNum);
+      } else {
+        orderNum = this.getMediasByItem(itemId).length + 1;
+      }
+      const id = this.createMedia(itemId, title, type, reference, orderNum, step);
+      db.exec('COMMIT;');
+      return id;
+    } catch (e) {
+      db.exec('ROLLBACK;');
+      throw e;
+    }
+  },
+
+  updateMedia(id, title, type, reference, step = {}) {
     return db.prepare(`
       UPDATE medias
-      SET title = ?, type = ?, reference = ?, updated_at = datetime('now', 'localtime')
+      SET title = ?, type = ?, reference = ?, paragraph = ?, side = ?, person = ?,
+          updated_at = datetime('now', 'localtime')
       WHERE id = ?
-    `).run(title, type, reference || '', id);
+    `).run(title, type, reference || '', step.paragraph ?? null, step.side || '', step.person || '', id);
   },
 
   updateMediaOrder(id, orderNum) {
@@ -299,12 +343,15 @@ const queries = {
     return db.prepare('DELETE FROM medias WHERE id = ?').run(id);
   },
 
-  // Playlist import: replace=true swaps the item's medias for the imported ones,
-  // otherwise they go after the last media. One transaction, so a failure keeps the old list.
+  // Playlist import: replace=true swaps the item's non-question medias for the imported ones
+  // (questions stay, renumbered 1..n), otherwise they go after the last media. One transaction, so a failure keeps the old list.
   importMedias(itemId, medias, replace) {
     db.exec('BEGIN TRANSACTION;');
     try {
-      if (replace) db.prepare('DELETE FROM medias WHERE item_id = ?').run(itemId);
+      if (replace) {
+        db.prepare("DELETE FROM medias WHERE item_id = ? AND type != 'question'").run(itemId);
+        this.getMediasByItem(itemId).forEach((m, i) => this.updateMediaOrder(m.id, i + 1));
+      }
       let orderNum = this.getMediasByItem(itemId).length + 1;
       for (const m of medias) {
         this.createMedia(itemId, m.title, m.type, m.reference, orderNum++);
@@ -395,6 +442,9 @@ const queries = {
             speaker: item.speaker || '',
             activity_type: item.activity_type || '',
             talk_number: item.talk_number ?? null,
+            cam_left: item.cam_left ?? null,
+            cam_right: item.cam_right ?? null,
+            cam_speaker: item.cam_speaker ?? null,
             order_num: item.order_num,
             completed: item.completed ? 1 : 0,
             medias: []
@@ -407,7 +457,11 @@ const queries = {
               type: media.type || 'other',
               reference: media.reference || '',
               order_num: media.order_num,
-              completed: media.completed ? 1 : 0
+              completed: media.completed ? 1 : 0,
+              paragraph: media.paragraph ?? null,
+              side: media.side || '',
+              person: media.person || '',
+              photo: media.photo || ''
             });
           }
 
@@ -482,8 +536,9 @@ const queries = {
           const items = Array.isArray(shift.items) ? shift.items : [];
           for (const item of items) {
             const itemRes = db.prepare(`
-              INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, completed, talk_number)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, completed, talk_number,
+                                 cam_left, cam_right, cam_speaker)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
               newShiftId,
               item.title || '',
@@ -493,22 +548,29 @@ const queries = {
               item.activity_type || '',
               item.order_num || 1,
               item.completed ? 1 : 0,
-              item.talk_number ?? null
+              item.talk_number ?? null,
+              item.cam_left ?? null,
+              item.cam_right ?? null,
+              item.cam_speaker ?? null
             );
             const newItemId = itemRes.lastInsertRowid;
 
             const medias = Array.isArray(item.medias) ? item.medias : [];
             for (const media of medias) {
               db.prepare(`
-                INSERT INTO medias (item_id, title, type, reference, order_num, completed)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person, photo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).run(
                 newItemId,
                 media.title || '',
                 media.type || 'other',
                 media.reference || '',
                 media.order_num || 1,
-                media.completed ? 1 : 0
+                media.completed ? 1 : 0,
+                media.paragraph ?? null,
+                media.side || '',
+                media.person || '',
+                media.photo || ''
               );
             }
           }

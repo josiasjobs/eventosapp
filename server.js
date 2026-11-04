@@ -15,7 +15,7 @@ const util = require('util');
 
 const { queries } = require('./db');
 const { playlistMediaTitle } = require('./playlist-title');
-const { parseTalkNumber } = require('./public/js/logic.js');
+const { parseTalkNumber, parsePositiveInt, checkQuestionStep, shiftHasSentinela } = require('./public/js/logic.js');
 
 // Validates the talk number (Discurso) of a part: { talkNumber } or { status, error }.
 // The number is optional, must be a positive integer and is unique across the event.
@@ -30,6 +30,39 @@ function checkTalkNumber(raw, shiftId, itemId = null) {
   }
   return { talkNumber };
 }
+// Validates the Sentinela cameras of a part: { cams } or { status, error }.
+// A camera absent from the body keeps the item's current value (when editing); '' clears it.
+function checkCams(body, item = null) {
+  const cams = {};
+  for (const [key, field, col] of [['left', 'camLeft', 'cam_left'], ['right', 'camRight', 'cam_right'], ['speaker', 'camSpeaker', 'cam_speaker']]) {
+    if (body[field] === undefined) { cams[key] = item ? item[col] ?? null : null; continue; }
+    const n = parsePositiveInt(body[field]);
+    if (n === false) return { status: 400, error: 'Câmera deve ser um número inteiro maior que zero.' };
+    cams[key] = n;
+  }
+  return { cams };
+}
+
+// Validates the step fields of a media: { step, title(raw) } or { error }.
+// Questions need a Sentinela parent; plain medias keep only the paragraph (side/person stored empty).
+function checkStep(mediaType, fields, parentItem) {
+  if (mediaType === 'question') {
+    if (!parentItem || parentItem.activity_type !== 'sentinela') {
+      return { error: 'Perguntas só podem ser adicionadas numa parte Sentinela.' };
+    }
+    const q = checkQuestionStep(fields);
+    if (q.error) return { error: q.error };
+    return { step: q, title: (raw) => (raw && String(raw).trim()) || '?' };
+  }
+  const paragraph = parsePositiveInt(fields.paragraph);
+  if (paragraph === false) return { error: 'Informe o parágrafo (número inteiro maior que zero).' };
+  return { step: { paragraph, side: '', person: '' }, title: (raw) => String(raw).trim() };
+}
+
+const SENTINELA_NEEDS_TALK = 'A Sentinela precisa do número do discurso.';
+const SENTINELA_ONE_PER_SHIFT = 'Este turno já tem uma Sentinela.';
+const MEDIA_TYPES = ['bible', 'image', 'video', 'interview', 'theater', 'question', 'other'];
+
 const {
   hashPin,
   comparePin,
@@ -544,8 +577,16 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
   if (!scheduledTime) return res.status(400).json({ error: 'Horário previsto é obrigatório.' });
   const talk = checkTalkNumber(req.body.talkNumber, shiftId);
   if (talk.error) return res.status(talk.status).json({ error: talk.error });
+  const camsCheck = checkCams(req.body);
+  if (camsCheck.error) return res.status(camsCheck.status).json({ error: camsCheck.error });
+  if ((activityType ? activityType.trim() : '') === 'sentinela' && talk.talkNumber === null) {
+    return res.status(400).json({ error: SENTINELA_NEEDS_TALK });
+  }
 
   const currentItems = queries.getItemsByShift(shiftId);
+  if ((activityType ? activityType.trim() : '') === 'sentinela' && shiftHasSentinela(currentItems)) {
+    return res.status(409).json({ error: SENTINELA_ONE_PER_SHIFT });
+  }
   const nextOrder = currentItems.length + 1;
 
   const itemId = queries.createItem(
@@ -556,7 +597,8 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
     speaker ? speaker.trim() : '',
     activityType ? activityType.trim() : '',
     nextOrder,
-    talk.talkNumber
+    talk.talkNumber,
+    camsCheck.cams
   );
 
   // If shift had no current item, automatically set this first item
@@ -590,6 +632,15 @@ app.put('/api/items/:id', authenticate('admin'), (req, res) => {
     ? checkTalkNumber(req.body.talkNumber, item.shift_id, item.id)
     : { talkNumber: item.talk_number };
   if (talk.error) return res.status(talk.status).json({ error: talk.error });
+  const camsCheck = checkCams(req.body, item);
+  if (camsCheck.error) return res.status(camsCheck.status).json({ error: camsCheck.error });
+  const effectiveType = activityType !== undefined ? activityType.trim() : item.activity_type;
+  if (effectiveType === 'sentinela' && talk.talkNumber === null) {
+    return res.status(400).json({ error: SENTINELA_NEEDS_TALK });
+  }
+  if (effectiveType === 'sentinela' && shiftHasSentinela(queries.getItemsByShift(item.shift_id), item.id)) {
+    return res.status(409).json({ error: SENTINELA_ONE_PER_SHIFT });
+  }
 
   queries.updateItem(
     item.id,
@@ -597,8 +648,9 @@ app.put('/api/items/:id', authenticate('admin'), (req, res) => {
     scheduledTime ? scheduledTime.trim() : item.scheduled_time,
     description !== undefined ? description.trim() : item.description,
     speaker !== undefined ? speaker.trim() : item.speaker,
-    activityType !== undefined ? activityType.trim() : item.activity_type,
-    talk.talkNumber
+    effectiveType,
+    talk.talkNumber,
+    camsCheck.cams
   );
 
   broadcast('PROGRAM_UPDATED', { shiftId: item.shift_id });
@@ -641,17 +693,22 @@ app.post('/api/items/:id/toggle', authenticate(), (req, res) => {
 // 16. Medias CRUD, Reordering, and Progress Toggle - RF-07, RF-08
 app.post('/api/medias', authenticate('admin'), (req, res) => {
   const { itemId, title, type, reference } = req.body;
-  if (!title || !title.trim()) return res.status(400).json({ error: 'Título da mídia é obrigatório.' });
+  const mediaType = MEDIA_TYPES.includes(type) ? type : 'other';
+  if (mediaType !== 'question' && (!title || !title.trim())) return res.status(400).json({ error: 'Título da mídia é obrigatório.' });
 
-  const validTypes = ['bible', 'image', 'video', 'interview', 'theater', 'other'];
-  const mediaType = validTypes.includes(type) ? type : 'other';
+  const parentItem = queries.getItem(itemId);
+  const stepCheck = checkStep(mediaType, req.body, parentItem);
+  if (stepCheck.error) return res.status(400).json({ error: stepCheck.error });
 
   const currentMedias = queries.getMediasByItem(itemId);
   const nextOrder = currentMedias.length + 1;
 
-  const mediaId = queries.createMedia(itemId, title.trim(), mediaType, reference ? reference.trim() : '', nextOrder);
+  const afterId = Number(req.body.afterId);
+  const mediaId = Number.isInteger(afterId) && afterId > 0
+    ? queries.createMediaAfter(itemId, afterId, stepCheck.title(title), mediaType, reference ? reference.trim() : '', stepCheck.step)
+    : queries.createMedia(itemId, stepCheck.title(title), mediaType, reference ? reference.trim() : '', nextOrder, stepCheck.step);
 
-  const item = queries.getItem(itemId);
+  const item = parentItem;
   broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId });
   res.json({ success: true, mediaId });
 });
@@ -674,17 +731,25 @@ app.put('/api/medias/:id', authenticate('admin'), (req, res) => {
   const media = queries.getMedia(req.params.id);
   if (!media) return res.status(404).json({ error: 'Mídia não encontrada' });
 
-  const validTypes = ['bible', 'image', 'video', 'interview', 'theater', 'other'];
-  const mediaType = validTypes.includes(type) ? type : media.type;
+  const mediaType = MEDIA_TYPES.includes(type) ? type : media.type;
+  const item = queries.getItem(media.item_id);
+  // absent paragraph/side/person keep the current values
+  const merged = {
+    paragraph: req.body.paragraph !== undefined ? req.body.paragraph : media.paragraph,
+    side: req.body.side !== undefined ? req.body.side : media.side,
+    person: req.body.person !== undefined ? req.body.person : media.person
+  };
+  const stepCheck = checkStep(mediaType, merged, item);
+  if (stepCheck.error) return res.status(400).json({ error: stepCheck.error });
 
   queries.updateMedia(
     media.id,
-    title ? title.trim() : media.title,
+    title && title.trim() ? title.trim() : (mediaType === 'question' && !media.title ? '?' : media.title),
     mediaType,
-    reference !== undefined ? reference.trim() : media.reference
+    reference !== undefined ? reference.trim() : media.reference,
+    stepCheck.step
   );
 
-  const item = queries.getItem(media.item_id);
   broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId: media.item_id });
   res.json({ success: true });
 });

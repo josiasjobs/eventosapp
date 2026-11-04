@@ -10,10 +10,14 @@
 })(this, function () {
   const isDone = (m) => !!(m && m.completed);
 
+  // Questions (Sentinela) have no checkbox and do not count toward part completion.
+  const isMediaStep = (step) => step.type !== 'question';
+
   // Returns the new completion value for a part after a media toggle, or null if no change.
   function itemCompletionAfterToggle(medias, itemCompleted, mediaNowCompleted) {
-    if (!medias || medias.length === 0) return null;
-    const allDone = medias.every(isDone);
+    const list = (medias || []).filter(isMediaStep);
+    if (list.length === 0) return null;
+    const allDone = list.every(isDone);
     if (mediaNowCompleted && allDone && !itemCompleted) return true;
     if (!mediaNowCompleted && itemCompleted) return false;
     return null;
@@ -38,7 +42,7 @@
   // 'done' takes priority over media state.
   function itemStatus(item) {
     if (item.completed) return 'done';
-    const medias = item.medias || [];
+    const medias = (item.medias || []).filter(isMediaStep);
     return medias.some(isDone) ? 'partial' : 'empty';
   }
 
@@ -106,15 +110,89 @@
     return IMPORTED_FILE_REF.test(text) ? '' : text;
   }
 
-  // Talk number of a part: null when the part is not a talk (empty), a positive integer,
-  // or false when the value is invalid (zero, negative, decimal, text).
-  function parseTalkNumber(value) {
+  // Positive integer from user input: null when empty, the number when valid,
+  // or false when invalid (zero, negative, decimal, text). Used for talk numbers and paragraphs.
+  function parsePositiveInt(value) {
     const text = value == null ? '' : String(value).trim();
     if (text === '') return null;
     if (!/^\d+$/.test(text)) return false;
     const n = Number(text);
     return n >= 1 && Number.isSafeInteger(n) ? n : false;
   }
+  const parseTalkNumber = parsePositiveInt;
 
-  return { localDateISO, mediaNotes, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds };
+  // Validates a Sentinela question from the form. Returns the cleaned values, or { error } in Portuguese.
+  function checkQuestionStep({ paragraph, side, person }) {
+    const name = String(person == null ? '' : person).trim();
+    if (name === '') return { error: 'Informe o nome de quem responde.' };
+    const n = parsePositiveInt(paragraph);
+    if (!Number.isInteger(n)) return { error: 'Informe o parágrafo (número inteiro maior que zero).' };
+    if (side !== 'left' && side !== 'right') return { error: 'O lado deve ser Esquerda ou Direita.' };
+    return { paragraph: n, side, person: name };
+  }
+
+  // Sentinela cards: consecutive questions with the same paragraph and side share a card; each media is its own card.
+  function groupSentinelaSteps(steps) {
+    const groups = [];
+    for (const step of steps || []) {
+      const last = groups[groups.length - 1];
+      if (!isMediaStep(step)) {
+        const paragraph = step.paragraph ?? null;
+        if (last && last.kind === 'question' && last.paragraph === paragraph && last.side === step.side) {
+          last.steps.push(step);
+        } else {
+          groups.push({ kind: 'question', paragraph, side: step.side, steps: [step] });
+        }
+      } else {
+        groups.push({ kind: 'media', paragraph: step.paragraph ?? null, side: null, steps: [step] });
+      }
+    }
+    return groups;
+  }
+
+  // Next/previous step in a part. At the ends (or with no steps) it leaves in that direction.
+  // A current step missing from the list moves forward to the first step, and backward out of the part.
+  function stepNav(stepIds, currentId, dir) {
+    const i = stepIds.indexOf(currentId);
+    if (dir === 'next') {
+      if (i === -1) return stepIds.length > 0 ? { stepId: stepIds[0] } : { leave: 'next' };
+      return i + 1 < stepIds.length ? { stepId: stepIds[i + 1] } : { leave: 'next' };
+    }
+    return i > 0 ? { stepId: stepIds[i - 1] } : { leave: 'prev' };
+  }
+
+  // Saved step if it still exists, otherwise the first one (null when there are none).
+  function pickInitialStep(stepIds, savedId) {
+    if (stepIds.includes(savedId)) return savedId;
+    return stepIds.length > 0 ? stepIds[0] : null;
+  }
+
+  // Up to 2 uppercase initials: the first two letters of one word, or first letter of first and last word.
+  function initials(name) {
+    const words = String(name == null ? '' : name).trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '';
+    const first = [...words[0]];
+    const last = [...words[words.length - 1]];
+    const pair = words.length === 1 ? first.slice(0, 2) : [first[0], last[0]];
+    return pair.join('').toUpperCase();
+  }
+
+  // A shift holds at most one Sentinela; exceptId ignores the part being edited
+  function shiftHasSentinela(items, exceptId = null) {
+    return (items || []).some((i) => i.activity_type === 'sentinela' && i.id !== exceptId);
+  }
+
+  // Theater and interview keep the camera preset in the notes field
+  const PRESET_TYPES = ['theater', 'interview'];
+  function notesLabel(type) {
+    return PRESET_TYPES.includes(type) ? 'Camera - Preset' : 'Observações';
+  }
+
+  // Notes as shown on screen and on paper: labelled when they hold a camera preset
+  function mediaNotesText(media) {
+    const notes = mediaNotes(media.reference);
+    return notes && PRESET_TYPES.includes(media.type) ? `${notesLabel(media.type)}: ${notes}` : notes;
+  }
+
+  return { notesLabel, mediaNotesText, shiftHasSentinela, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials };
 });

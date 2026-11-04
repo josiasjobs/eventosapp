@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildProgramHtml } = require('../public/js/print-program.js');
+const { buildProgramHtml, buildSentinelaHtml, itemsFor } = require('../public/js/print-program.js');
 
 const data = {
   eventName: 'Congresso 2026',
@@ -115,7 +115,7 @@ test('roteiro mostra o número do discurso e não a sequência das partes', () =
 });
 
 test('roteiro só de discursos identifica isso no cabeçalho', () => {
-  const html = buildProgramHtml({ ...data, onlyTalks: true, items: [
+  const html = buildProgramHtml({ ...data, mode: 'talks', items: [
     { scheduled_time: '09:20', title: 'Discurso A', speaker: '', description: '', talk_number: 12, medias: [] }
   ] });
   assert.match(html, /Somente discursos/);
@@ -123,4 +123,57 @@ test('roteiro só de discursos identifica isso no cabeçalho', () => {
 
 test('roteiro completo não mostra o aviso de discursos', () => {
   assert.doesNotMatch(buildProgramHtml(data), /Somente discursos/);
+});
+
+const sentinela = {
+  scheduled_time: '15:00', title: 'A Sentinela', speaker: '', description: '', talk_number: 3,
+  activity_type: 'sentinela', cam_left: 1, cam_right: 3, cam_speaker: 2,
+  medias: [
+    { type: 'question', paragraph: 1, side: 'left', person: 'Pedro', title: 'A?' },
+    { type: 'question', paragraph: 1, side: 'left', person: 'Jonas', title: 'B?' },
+    { type: 'bible', paragraph: 2, title: 'Salmo 119:9', reference: '' },
+    { type: 'question', paragraph: 2, side: 'right', person: 'Joana', title: '?' }
+  ]
+};
+
+test('itemsFor: a Sentinela tem impressão própria, fora do roteiro e dos discursos', () => {
+  const plain = { id: 1, talk_number: null, activity_type: '' };
+  const talk = { id: 2, talk_number: 5, activity_type: '' };
+  const sent = { id: 3, talk_number: 3, activity_type: 'sentinela' };
+  const items = [plain, talk, sent];
+  assert.deepEqual(itemsFor(items, 'all'), [plain, talk]);
+  assert.deepEqual(itemsFor(items, 'talks'), [talk]);
+  assert.deepEqual(itemsFor(items, 'sentinela'), [sent]);
+  assert.deepEqual(itemsFor(undefined, 'all'), []);
+});
+
+test('Sentinela: tabela com ESQUERDA | DIREITA no cabeçalho (repete em cada página)', () => {
+  const html = buildSentinelaHtml({ ...data, items: [sentinela] });
+  assert.match(html, /<thead>[\s\S]*ESQUERDA[\s\S]*DIREITA[\s\S]*<\/thead>/);
+  assert.match(html, /thead \{ display: table-header-group/);
+  assert.match(html, /tr \{ break-inside: avoid/);
+  assert.match(html, /Somente Sentinela|class="chip chip-accent">Sentinela/);
+  assert.match(html, /Nº 3/);
+  assert.match(html, /Orador CAM 2/);
+});
+
+test('Sentinela: pessoas no lado delas, câmera no oposto, ☐ só nas mídias', () => {
+  const html = buildSentinelaHtml({ ...data, items: [sentinela] });
+  assert.match(html, /§1<\/td>\s*<td[^>]*>[\s\S]*Pedro[\s\S]*A\?[\s\S]*Jonas[\s\S]*B\?[\s\S]*<\/td>\s*<td[^>]*>[\s\S]*CAM 1[\s\S]*?<\/td>/);
+  assert.match(html, /<td[^>]*>[\s\S]*CAM 3[\s\S]*?<\/td>\s*<td[^>]*>[\s\S]*Joana/);
+  assert.match(html, /§2<\/td>\s*<td colspan="2">[\s\S]*Salmo 119:9/);
+  assert.equal((html.match(/class="box"/g) || []).length, 1);
+});
+
+test('Sentinela: texto do banco é escapado', () => {
+  const evil = { ...sentinela, medias: [{ type: 'question', paragraph: 1, side: 'left', person: '<b>X</b>', title: '"?"' }] };
+  const html = buildSentinelaHtml({ ...data, items: [evil] });
+  assert.doesNotMatch(html, /<b>X<\/b>/);
+  assert.match(html, /&lt;b&gt;X&lt;\/b&gt;/);
+});
+
+test('roteiro mostra "Camera - Preset" nas mídias de teatro e entrevista', () => {
+  const html = buildProgramHtml({ ...data, items: [{ scheduled_time: '10:00', title: 'Drama', speaker: '', description: '',
+    medias: [{ type: 'theater', title: 'Cena 1', reference: 'CAM 2 - P4' }] }] });
+  assert.match(html, /Camera - Preset: CAM 2 - P4/);
 });

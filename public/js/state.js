@@ -152,6 +152,32 @@ const AppState = {
     }
   },
 
+  // Current step of a Sentinela on this device: the saved one if it still exists, else the first (null when none)
+  getStepId(item) {
+    if (!item) return null;
+    const stepIds = (item.medias || []).map(m => m.id);
+    return Logic.pickInitialStep(stepIds, this._savedStepIds()[item.id] ?? null);
+  },
+
+  setStepId(itemId, stepId) {
+    const saved = this._savedStepIds();
+    saved[Number(itemId)] = Number(stepId);
+    try {
+      localStorage.setItem('eventos_step_ids', JSON.stringify(saved));
+    } catch (e) { /* storage unavailable */ }
+    this.notify('STEP_CHANGED', { itemId: Number(itemId), stepId: Number(stepId) });
+  },
+
+  // Last current step per Sentinela part on this device: { [itemId]: stepId }
+  _savedStepIds() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('eventos_step_ids') || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  },
+
   toggleMediaCompleted(mediaId, completed) {
     if (!this.shiftData || !this.shiftData.items) return;
     for (const item of this.shiftData.items) {
