@@ -139,8 +139,10 @@ const sentinela = {
 test('Sentinela imprime cartões com lado, câmera e ☐ só nas mídias', () => {
   const html = buildProgramHtml({ ...data, items: [sentinela] });
   assert.match(html, /Orador CAM 2/);
-  assert.match(html, /ESQUERDA · CAM 1[\s\S]*Pedro[\s\S]*A\?[\s\S]*Jonas[\s\S]*B\?/);
-  assert.match(html, /DIREITA · CAM 3[\s\S]*Joana/);
+  // Same layout as the app: ESQUERDA | DIREITA columns, people on their side, camera on the opposite one
+  assert.match(html, /class="sent-cols"[\s\S]*ESQUERDA[\s\S]*DIREITA/);
+  assert.match(html, /<div class="col">[\s\S]*Pedro[\s\S]*A\?[\s\S]*Jonas[\s\S]*B\?[\s\S]*<\/div>\s*<div class="col">[\s\S]*CAM 1/);
+  assert.match(html, /<div class="col">[\s\S]*CAM 3[\s\S]*<\/div>\s*<div class="col">[\s\S]*Joana/);
   assert.match(html, /§1/);
   assert.equal((html.match(/class="box"/g) || []).length, 1);
 });
