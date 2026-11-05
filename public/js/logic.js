@@ -182,6 +182,31 @@
     return (items || []).some((i) => i.activity_type === 'sentinela' && i.id !== exceptId);
   }
 
+  // Validates a camera plan from the form. Returns null when valid, or an error message in Portuguese.
+  function checkCameraPlan({ sigla, name, camera, preset }) {
+    const s = String(sigla == null ? '' : sigla).trim();
+    if (s === '' || s.length > 8) return 'Informe a sigla (até 8 caracteres).';
+    if (String(name == null ? '' : name).trim() === '') return 'Informe o nome do plano.';
+    const cam = parsePositiveInt(camera);
+    const pre = parsePositiveInt(preset);
+    if (!Number.isInteger(cam) || !Number.isInteger(pre)) return 'Câmera e preset devem ser números inteiros maiores que zero.';
+    return null;
+  }
+
+  // "PP · Plano presidente · CAM 2 · P4"; empty when there is no plan
+  function planLabel(plan) {
+    if (!plan) return '';
+    return `${plan.sigla} · ${plan.name} · CAM ${plan.camera} · P${plan.preset}`;
+  }
+
+  // Plan transition of a part: "PP → PA", "PP →" (no plan after), "→ PA" (no plan before)
+  function planSiglas(item) {
+    const from = item.plan_in ? item.plan_in.sigla : '';
+    const to = item.plan_out ? item.plan_out.sigla : '';
+    if (!from && !to) return '';
+    return `${from} → ${to}`.trim();
+  }
+
   // Badges before a part title: "Presidente" for the chairman part, "Nº 12" for a talk
   function partBadgesHtml(item, esc) {
     const role = item.activity_type === 'presidente' ? '<span class="role-badge">Presidente</span>' : '';
@@ -230,5 +255,5 @@
     return value.length <= PHOTO_MAX_LENGTH && PHOTO_PATTERN.test(value);
   }
 
-  return { partBadgesHtml, notesLabel, mediaNotesText, shiftHasSentinela, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials, coverScale, clampPan, fitWithin, isValidPhoto };
+  return { partBadgesHtml, notesLabel, mediaNotesText, shiftHasSentinela, checkCameraPlan, planLabel, planSiglas, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials, coverScale, clampPan, fitWithin, isValidPhoto };
 });
