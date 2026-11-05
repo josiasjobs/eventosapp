@@ -208,26 +208,31 @@ test('roteiro marca a parte do presidente', () => {
 
 const PP = { sigla: 'PP', name: 'Plano presidente', camera: 2, preset: 4 };
 const PA = { sigla: 'PA', name: 'Plano aberto', camera: 1, preset: 1 };
+// Visible text of the page: tags become spaces, whitespace collapsed
+const textOf = (html) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
 test('roteiro: entrada antes das mídias e saída depois', () => {
   const html = buildProgramHtml({ ...data, items: [{ scheduled_time: '09:00', title: 'Discurso', speaker: 'João',
     description: '', plan_in: PP, plan_out: PA, medias: [{ type: 'video', title: 'Vídeo X', reference: '' }] }] });
-  const a = html.indexOf('↑ Entrada · PP · Plano presidente · CAM 2 · P4');
-  const b = html.indexOf('Vídeo X');
-  const c = html.indexOf('↓ Saída · PA · Plano aberto · CAM 1 · P1');
+  const text = textOf(html);
+  const a = text.indexOf('↑ Entrada PP Plano presidente CAM 2 · P4');
+  const b = text.indexOf('Vídeo X');
+  const c = text.indexOf('↓ Saída PA Plano aberto CAM 1 · P1');
   assert.ok(a > -1 && a < b && b < c);
+  assert.match(html, /class="plan-sigla">PP</);
 });
 
 test('roteiro sem plano não imprime linhas de plano', () => {
-  assert.doesNotMatch(buildProgramHtml(data), /Entrada ·|Saída ·/);
+  assert.doesNotMatch(buildProgramHtml(data), /Entrada|Saída|class="plan /);
 });
 
 test('Sentinela: entrada na primeira linha da tabela e saída na última', () => {
   const html = buildSentinelaHtml({ ...data, items: [{ scheduled_time: '15:00', title: 'A Sentinela', speaker: '',
     description: '', talk_number: 3, plan_in: PP, plan_out: PA,
     medias: [{ type: 'question', title: 'A?', paragraph: 1, side: 'left', person: 'Ana' }] }] });
-  const a = html.indexOf('↑ Entrada · PP');
-  const b = html.indexOf('Ana');
-  const c = html.indexOf('↓ Saída · PA');
+  const text = textOf(html);
+  const a = text.indexOf('↑ Entrada PP');
+  const b = text.indexOf('Ana');
+  const c = text.indexOf('↓ Saída PA');
   assert.ok(a > -1 && a < b && b < c);
 });

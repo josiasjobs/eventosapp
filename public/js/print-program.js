@@ -65,7 +65,15 @@
   .media-text { display: flex; flex-direction: column; min-width: 0; }
   .media-title { overflow-wrap: anywhere; }
   .empty { padding: 4px 10px 8px; font-size: 9.5pt; color: var(--text-2); font-style: italic; }
-  .plan { display: flex; align-items: center; gap: 6px; font-size: 9pt; color: var(--text-2); }`;
+  .plan { display: flex; align-items: center; gap: 4px 8px; padding: 4px 10px; font-size: 10pt;
+    background: var(--surface); border-left: 3px solid var(--accent); break-inside: avoid; }
+  .plan-dir { color: var(--accent); font-size: 8.5pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; white-space: nowrap; }
+  .plan-sigla { padding: 0 6px; border-radius: var(--radius); background: var(--accent); color: #fff;
+    font-weight: 700; white-space: nowrap; }
+  .plan-name { flex: 1; min-width: 0; font-weight: 600; }
+  .plan-cam { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-weight: 700;
+    white-space: nowrap; }`;
 
   const PROGRAM_CSS = `
   .part { break-inside: avoid; page-break-inside: avoid; margin-bottom: 10px;
@@ -73,7 +81,7 @@
   .medias { list-style: none; margin: 4px 0 0; padding: 0 10px 4px; }
   .media { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; border-top: 1px solid var(--line); }
   .media:first-child { border-top: none; }
-  .part > .plan { padding: 4px 10px; }`;
+  .part > .plan { margin: 4px 10px; }`;
 
   const SENTINELA_CSS = `
   .sent-part { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius);
@@ -92,7 +100,7 @@
   .person span { color: var(--text-2); font-size: 9pt; }
   .cam { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--text-2); font-size: 9pt; }
   .media-line { display: flex; gap: 10px; align-items: flex-start; text-align: left; }
-  td .plan { justify-content: center; }`;
+  td .plan { text-align: left; }`;
 
   function pageHtml({ title, css, chips, body, icon }) {
     return `<!doctype html>
@@ -146,7 +154,12 @@
     const planLineHtml = (kind, plan) => {
       if (!plan) return '';
       const arrow = kind === 'in' ? '↑ Entrada' : '↓ Saída';
-      return `<div class="plan plan-${kind}">${icon('video', 14)}<span>${arrow} · ${esc(Logic.planLabel(plan))}</span></div>`;
+      return `<div class="plan plan-${kind}">
+            <span class="plan-dir">${arrow}</span>
+            <span class="plan-sigla">${esc(plan.sigla)}</span>
+            <span class="plan-name">${esc(plan.name)}</span>
+            <span class="plan-cam">${icon('video', 14)}<span>CAM ${esc(plan.camera)} · P${esc(plan.preset)}</span></span>
+          </div>`;
     };
     return { icon, mediaInner, partHeadHtml, planLineHtml };
   }
