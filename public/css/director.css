@@ -151,6 +151,21 @@ body.mode-editor .topbar { box-shadow: 0 2px 0 var(--accent); }
   vertical-align: 0.1em;
 }
 
+/* "PRESIDENTE" before the title of the chairman part */
+.role-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: 0.1em;
+}
+
 /* Bolinha de status como botao: area de toque de 44px pelo ::before */
 button.dot {
   appearance: none;

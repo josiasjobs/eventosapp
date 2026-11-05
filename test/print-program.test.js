@@ -197,3 +197,11 @@ test('Sentinela sem fotos: nenhuma <img>', () => {
   const html = buildSentinelaHtml({ ...data, withPhotos: false, items: [sentFotos] });
   assert.doesNotMatch(html, /<img /);
 });
+
+test('roteiro marca a parte do presidente', () => {
+  const html = buildProgramHtml({ ...data, items: [
+    { scheduled_time: '09:00', title: 'Presidente', speaker: 'Carlos', description: '', activity_type: 'presidente', medias: [] },
+    { scheduled_time: '09:10', title: 'Discurso A', speaker: 'João', description: '', talk_number: 12, medias: [] }
+  ] });
+  assert.equal((html.match(/class="role">Presidente</g) || []).length, 1);
+});

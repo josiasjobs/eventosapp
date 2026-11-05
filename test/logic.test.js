@@ -275,3 +275,10 @@ test('isValidPhoto aceita só webp/jpeg em base64 até 100 KB', () => {
   assert.equal(L.isValidPhoto('data:image/webp;base64,' + 'A'.repeat(102400)), false);
   assert.equal(L.isValidPhoto(null), false);
 });
+
+test('partBadgesHtml: presidente and talk number badges', () => {
+  const esc = L.escapeHtml;
+  assert.equal(L.partBadgesHtml({ activity_type: 'presidente' }, esc), '<span class="role-badge">Presidente</span>');
+  assert.equal(L.partBadgesHtml({ talk_number: 12 }, esc), '<span class="talk-badge">Nº 12</span>');
+  assert.equal(L.partBadgesHtml({ activity_type: '' }, esc), '');
+});

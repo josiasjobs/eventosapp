@@ -198,9 +198,10 @@ const Modals = {
   // ==========================================
   itemEditId: null,
   itemSentinela: false,
+  itemPresidente: false,
 
-  // A Sentinela is requested by opts.sentinela (new) or recognised on the item (edit)
-  openItemModal(itemId = null, { sentinela = false } = {}) {
+  // Sentinela / Presidente are requested by opts (new) or recognised on the item (edit)
+  openItemModal(itemId = null, { sentinela = false, presidente = false } = {}) {
     this.itemEditId = itemId;
     const titleEl = document.getElementById('item-modal-title');
     const form = document.getElementById('form-item');
@@ -209,9 +210,11 @@ const Modals = {
     const found = itemId ? AppState.shiftData.items.find(i => i.id === Number(itemId)) : null;
     this.itemSentinela = !!sentinela || !!(found && found.activity_type === 'sentinela');
     const sent = this.itemSentinela;
+    this.itemPresidente = !!presidente || !!(found && found.activity_type === 'presidente');
+    const pres = this.itemPresidente;
 
     if (itemId) {
-      titleEl.textContent = sent ? 'Editar Sentinela' : 'Editar parte';
+      titleEl.textContent = sent ? 'Editar Sentinela' : pres ? 'Editar presidente' : 'Editar parte';
       const item = found;
       if (item) {
         form.itemTitle.value = item.title || '';
@@ -225,8 +228,9 @@ const Modals = {
         form.itemCamSpeaker.value = item.cam_speaker || '';
       }
     } else {
-      titleEl.textContent = sent ? 'Nova Sentinela' : 'Nova parte';
+      titleEl.textContent = sent ? 'Nova Sentinela' : pres ? 'Novo presidente' : 'Nova parte';
       if (sent) form.itemTitle.value = 'A Sentinela';
+      if (pres) form.itemTitle.value = 'Presidente';
       // Default scheduled time suggestion based on last item
       const lastItem = AppState.shiftData.items[AppState.shiftData.items.length - 1];
       if (lastItem && lastItem.scheduled_time) {
@@ -265,7 +269,7 @@ const Modals = {
       title: form.itemTitle.value.trim(),
       scheduledTime: form.itemScheduledTime.value.trim(),
       speaker: form.itemSpeaker.value.trim(),
-      activityType: this.itemSentinela ? 'sentinela' : (original ? (original.activity_type || '') : ''),
+      activityType: this.itemSentinela ? 'sentinela' : this.itemPresidente ? 'presidente' : (original ? (original.activity_type || '') : ''),
       description: form.itemDescription.value.trim(),
       // '' clears the number when "Discurso" is unchecked
       talkNumber: form.itemIsTalk.checked ? form.itemTalkNumber.value.trim() : ''
