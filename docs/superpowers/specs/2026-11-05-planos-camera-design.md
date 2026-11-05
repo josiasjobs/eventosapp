@@ -60,9 +60,10 @@ Na transição de um orador para outro, o diretor chama um **plano** de câmera:
   - Id que não existe no cadastro → 400 `Plano de câmera não encontrado.`
 - Dados do turno (`/api/shifts/:id/full`): cada parte traz `plan_in` e `plan_out` como `{ id, sigla, name, camera, preset }` ou `null`.
 
-## Cadastro na tela (Configurações)
+## Cadastro na tela (botão próprio)
 
-- Seção nova **Planos de câmera** nas Configurações, entre PINs e Backup.
+- Botão novo na barra de cima, com o ícone de câmera (`video`), ao lado de Imprimir. Aparece só com a edição ligada (`edit-only`), como o botão de Configurações.
+- O botão abre a janela **Planos de câmera**, separada das Configurações.
 - Uma linha por plano: `PP  Plano presidente  CAM 2 · P4`, mais ⋯ com **Editar** e **Excluir**.
 - **+ Novo plano** e **Editar** abrem um formulário com Sigla, Nome, Câmera e Preset.
 - **Excluir**:
@@ -74,7 +75,7 @@ Na transição de um orador para outro, o diretor chama um **plano** de câmera:
 
 - Dois seletores logo abaixo do campo Orador: **Plano de entrada** e **Plano de saída**.
 - Opções: `— Nenhum —` e cada plano como `planLabel(plan)`.
-- Com o cadastro vazio, os seletores ficam desativados com a dica `Cadastre planos em Configurações.`
+- Com o cadastro vazio, os seletores ficam desativados com a dica `Cadastre planos no botão da câmera.`
 
 ## Onde aparece
 
