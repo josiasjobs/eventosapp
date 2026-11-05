@@ -137,6 +137,7 @@ function setupEventListeners() {
   Modals.initShiftPicker();
   Modals.initMediaTypePicker();
   Modals.initChoice();
+  Modals.initFabHelp();
   Modals.initTalkField();
   Modals.initQuestionForm();
   const shiftBtn = document.getElementById('btn-shift-picker');

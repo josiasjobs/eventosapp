@@ -79,6 +79,22 @@ body:not(.mode-editor) .edit-only { display: none !important; }
   border-radius: 6px;
   box-shadow: var(--shadow);
 }
+.fab-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 0 12px;
+  color: var(--text-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.fab-help-list { margin: 0; }
+.fab-help-list dt { font-weight: 700; }
+.fab-help-list dd { margin: 2px 0 14px; color: var(--text-2); }
+.fab-help-list dd:last-child { margin-bottom: 0; }
 .fab-menu[hidden], .fab-option[hidden] { display: none; }
 .fab-option {
   display: flex;

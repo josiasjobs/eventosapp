@@ -394,7 +394,7 @@ const Modals = {
     return new Promise(resolve => { this._choiceResolve = resolve; });
   },
 
-  // + > Importar JW Library: pick a file, a target shift and (if it has parts) append/replace
+  // + > Importar BK JW (.jwlibrary): pick a file, a target shift and (if it has parts) append/replace
   async importJwLibrary() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -407,7 +407,7 @@ const Modals = {
   },
 
   async _runJwLibraryImport(file) {
-    const title = 'Importar JW Library';
+    const title = 'Importar BK JW';
     const options = [];
     for (const d of AppState.days) {
       for (const s of (d.shifts || [])) {
@@ -461,6 +461,14 @@ const Modals = {
     } catch (err) {
       window.showToast('Erro ao importar: ' + err.message, 'error');
     }
+  },
+
+  initFabHelp() {
+    const modal = document.getElementById('modal-fab-help');
+    if (!modal) return;
+    modal.addEventListener('click', e => {
+      if (e.target === modal || e.target.closest('[data-help-close]')) this.close('modal-fab-help');
+    });
   },
 
   initChoice() {
