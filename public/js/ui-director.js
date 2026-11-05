@@ -145,7 +145,13 @@ const UIDirector = {
   // Entry / exit camera plan strip: informational, outside the media list
   planRowHtml(plan, dir) {
     if (!plan) return '';
-    return `<div class="plan-row plan-${dir}">${icon('video', 16)}<span>${dir === 'in' ? '↑ Entrada' : '↓ Saída'} · ${uiEsc(Logic.planLabel(plan))}</span></div>`;
+    return `
+        <div class="plan-row plan-${dir}" aria-label="${dir === 'in' ? 'Entrada' : 'Saída'} · ${uiEsc(Logic.planLabel(plan))}">
+          <span class="plan-dir">${dir === 'in' ? '↑ Entrada' : '↓ Saída'}</span>
+          <span class="plan-sigla">${uiEsc(plan.sigla)}</span>
+          <span class="plan-name">${uiEsc(plan.name)}</span>
+          <span class="plan-cam tnum">${icon('video', 16)}<span>CAM ${uiEsc(plan.camera)} · P${uiEsc(plan.preset)}</span></span>
+        </div>`;
   },
 
   // Media row with the manual ☐ (plain parts, Sentinela media cards and the Sentinela edit list)
@@ -289,12 +295,13 @@ const UIDirector = {
       const isCurrent = item.id === currentItemId;
       const status = Logic.itemStatus(item);
       const label = status === 'done' ? 'Marcar parte como pendente' : 'Marcar parte como concluída';
+      const siglas = Logic.planSiglas(item);
       return `
         <div class="row part-row${isCurrent ? ' is-current' : ''}${status === 'done' ? ' is-done' : ''}"
              data-item-id="${id}" role="button" tabindex="0"${isCurrent ? ' aria-current="true"' : ''}>
           <span class="part-time tnum">${uiEsc(item.scheduled_time)}</span>
           <span class="part-title">${this.talkBadgeHtml(item)}${uiEsc(item.title)}</span>
-          ${Logic.planSiglas(item) ? `<span class="part-plans">${uiEsc(Logic.planSiglas(item))}</span>` : ''}
+          ${siglas ? `<span class="part-plans">${uiEsc(siglas)}</span>` : ''}
           ${uiIconButton('more', 'Ações da parte', 'data-action="item-menu" aria-haspopup="menu" aria-expanded="false"', 'more-btn edit-only')}
           <button type="button" class="dot is-${status}" data-action="toggle-item"
                   title="${label}" aria-label="${label}" aria-pressed="${status === 'done'}"></button>

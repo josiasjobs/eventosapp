@@ -144,8 +144,12 @@ body.mode-editor .topbar { box-shadow: 0 2px 0 var(--accent); }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-2);
+  padding: 0 6px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--accent);
   font-size: var(--fs-small);
+  font-weight: 700;
 }
 
 /* "Nº 12" before the title of a talk part */
@@ -449,14 +453,47 @@ img.sent-photo, img.step-photo { display: block; object-fit: cover; }
 
 /* Entry / exit camera plan strip in the current part (not a media row) */
 .current-part .plan-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   min-height: 0;
-  margin: 6px 0;
-  padding: 6px 12px;
-  gap: 8px;
-  border: 1px dashed var(--border);
+  margin: 8px 0;
+  padding: 10px 12px;
+  gap: 6px 10px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
   border-radius: var(--radius);
-  color: var(--text-2);
-  font-size: var(--fs-small);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-body);
   pointer-events: none;
   user-select: none;
 }
+.current-part .plan-dir {
+  color: var(--accent);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.current-part .plan-sigla {
+  padding: 1px 8px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.current-part .plan-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.current-part .plan-cam {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.current-part .plan-cam svg { color: var(--text-2); }
