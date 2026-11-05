@@ -481,6 +481,7 @@ app.post('/api/backup/restore', authenticate('admin'), (req, res) => {
     // Notify all connected clients to reload hierarchy and current shift
     broadcast('EVENT_UPDATED', { eventId: result.eventId });
     broadcast('EVENT_SETUP_COMPLETED', { eventId: result.eventId });
+    broadcast('CAMERA_PLANS_UPDATED');
 
     res.json({ success: true, message: 'Evento e dados restaurados com sucesso!' });
   } catch (err) {

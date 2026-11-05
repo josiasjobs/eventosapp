@@ -253,8 +253,10 @@ const Modals = {
   fillPlanSelects(form, item) {
     const plans = AppState.cameraPlans || [];
     const fill = (select, current) => {
-      select.innerHTML = '<option value="">— Nenhum —</option>' + plans.map(p =>
-        `<option value="${Number(p.id)}">${Logic.escapeHtml(Logic.planLabel(p))}</option>`).join('');
+      const option = p => `<option value="${Number(p.id)}">${Logic.escapeHtml(Logic.planLabel(p))}</option>`;
+      // A plan missing from a stale catalog still gets an option, so saving keeps it
+      const extra = current && !plans.some(p => p.id === current.id) ? option(current) : '';
+      select.innerHTML = '<option value="">— Nenhum —</option>' + plans.map(option).join('') + extra;
       select.value = current ? String(current.id) : '';
       select.disabled = plans.length === 0;
     };
@@ -288,10 +290,11 @@ const Modals = {
       activityType: this.itemSentinela ? 'sentinela' : this.itemPresidente ? 'presidente' : (original ? (original.activity_type || '') : ''),
       description: form.itemDescription.value.trim(),
       // '' clears the number when "Discurso" is unchecked
-      talkNumber: form.itemIsTalk.checked ? form.itemTalkNumber.value.trim() : '',
-      planInId: form.itemPlanIn.value,
-      planOutId: form.itemPlanOut.value
+      talkNumber: form.itemIsTalk.checked ? form.itemTalkNumber.value.trim() : ''
     };
+    // Disabled selects (empty catalog) are left out so the server keeps the current plans
+    if (!form.itemPlanIn.disabled) payload.planInId = form.itemPlanIn.value;
+    if (!form.itemPlanOut.disabled) payload.planOutId = form.itemPlanOut.value;
     if (this.itemSentinela) {
       // '' clears a camera
       payload.camLeft = form.itemCamLeft.value.trim();

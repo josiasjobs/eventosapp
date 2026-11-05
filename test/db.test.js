@@ -154,12 +154,16 @@ test('backup leva os planos usados; restauração usa o local e cria o que falta
 });
 
 test('restauração: sigla desconhecida fica sem plano; backup antigo sem planos restaura', () => {
+  const shift = queries.getShiftsByDay(queries.getDaysByEvent(queries.getActiveEvent().id)[0].id)[0];
+  const known = queries.createCameraPlan({ sigla: 'KN', name: 'Conhecido', camera: 2, preset: 2 });
+  queries.createItem(shift.id, 'ComPlano', '11:00', '', '', '', 99, null, {}, { inId: known, outId: null });
   const backup = queries.getFullEventBackup();
-  const part = backup.days[0].shifts[0].items[0];
+  const part = backup.days[0].shifts[0].items.find(i => i.title === 'ComPlano');
+  assert.equal(part.plan_in, 'KN');
   part.plan_in = 'NAOEXISTE';
   delete backup.camera_plans;
   queries.restoreEventBackup(backup, true);
-  const shift = queries.getShiftsByDay(queries.getDaysByEvent(queries.getActiveEvent().id)[0].id)[0];
-  const restored = queries.getFullShiftData(shift.id).items[0];
+  const newShift = queries.getShiftsByDay(queries.getDaysByEvent(queries.getActiveEvent().id)[0].id)[0];
+  const restored = queries.getFullShiftData(newShift.id).items.find(i => i.title === 'ComPlano');
   assert.equal(restored.plan_in, null);
 });

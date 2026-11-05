@@ -375,6 +375,8 @@ const SocketClient = {
         if (AppState.selectedShiftId) {
           window.dispatchEvent(new CustomEvent('refresh-shift-data'));
         }
+        // A CAMERA_PLANS_UPDATED may have been missed while disconnected
+        window.dispatchEvent(new CustomEvent('refresh-camera-plans'));
         break;
 
       case 'CURRENT_ITEM_CHANGED':
