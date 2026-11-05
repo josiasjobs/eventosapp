@@ -15,7 +15,7 @@ const util = require('util');
 
 const { queries } = require('./db');
 const { readPlaylists, extractUserDb, INVALID: JWL_INVALID } = require('./jwl-reader');
-const { parseTalkNumber, parsePositiveInt, checkQuestionStep, shiftHasSentinela, isValidPhoto } = require('./public/js/logic.js');
+const { parseTalkNumber, parsePositiveInt, checkCameraPlan, checkQuestionStep, shiftHasSentinela, isValidPhoto } = require('./public/js/logic.js');
 
 // Validates the talk number (Discurso) of a part: { talkNumber } or { status, error }.
 // The number is optional, must be a positive integer and is unique across the event.
@@ -41,6 +41,32 @@ function checkCams(body, item = null) {
     cams[key] = n;
   }
   return { cams };
+}
+
+// Validates the camera plans (in/out) of a part: { plans: { inId, outId } } or { status, error }.
+// A plan absent from the body keeps the item's current value (when editing); '' or null clears it.
+function checkPlans(body, item = null) {
+  const plans = {};
+  for (const [key, field, col] of [['inId', 'planInId', 'plan_in_id'], ['outId', 'planOutId', 'plan_out_id']]) {
+    if (body[field] === undefined) { plans[key] = item ? item[col] ?? null : null; continue; }
+    const id = parsePositiveInt(body[field]);
+    if (id === false || (id !== null && !queries.getCameraPlan(id))) {
+      return { status: 400, error: 'Plano de câmera não encontrado.' };
+    }
+    plans[key] = id;
+  }
+  return { plans };
+}
+
+// Validates the catalog body and stores camera/preset as integers: { plan } or { status, error }.
+function checkPlanBody(body, planId = null) {
+  const msg = checkCameraPlan(body);
+  if (msg) return { status: 400, error: msg };
+  const other = queries.getCameraPlanBySigla(body.sigla);
+  if (other && other.id !== planId) {
+    return { status: 409, error: `Já existe um plano com a sigla ${String(body.sigla).trim()}.` };
+  }
+  return { plan: { sigla: body.sigla, name: body.name, camera: parsePositiveInt(body.camera), preset: parsePositiveInt(body.preset) } };
 }
 
 // Validates the step fields of a media: { step, title(raw) } or { error }.
@@ -573,6 +599,37 @@ app.post('/api/shifts/:id/current-item', authenticate(), (req, res) => {
   res.json({ success: true, shiftId: shift.id, currentItemId });
 });
 
+// Camera plans catalog (Admin writes, any session reads)
+app.get('/api/camera-plans', authenticate(), (req, res) => {
+  res.json(queries.listCameraPlans());
+});
+
+app.post('/api/camera-plans', authenticate('admin'), (req, res) => {
+  const check = checkPlanBody(req.body || {});
+  if (check.error) return res.status(check.status).json({ error: check.error });
+  const id = queries.createCameraPlan(check.plan);
+  broadcast('CAMERA_PLANS_UPDATED');
+  res.json({ success: true, id });
+});
+
+app.put('/api/camera-plans/:id', authenticate('admin'), (req, res) => {
+  const existing = queries.getCameraPlan(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Plano não encontrado.' });
+  const check = checkPlanBody(req.body || {}, existing.id);
+  if (check.error) return res.status(check.status).json({ error: check.error });
+  queries.updateCameraPlan(existing.id, check.plan);
+  broadcast('CAMERA_PLANS_UPDATED');
+  res.json({ success: true });
+});
+
+app.delete('/api/camera-plans/:id', authenticate('admin'), (req, res) => {
+  const existing = queries.getCameraPlan(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Plano não encontrado.' });
+  queries.deleteCameraPlan(existing.id);
+  broadcast('CAMERA_PLANS_UPDATED');
+  res.json({ success: true });
+});
+
 // 15. Items CRUD & Reordering (Admin only) - RF-06
 app.post('/api/items', authenticate('admin'), (req, res) => {
   const { shiftId, title, scheduledTime, description, speaker, activityType } = req.body;
@@ -582,6 +639,8 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
   if (talk.error) return res.status(talk.status).json({ error: talk.error });
   const camsCheck = checkCams(req.body);
   if (camsCheck.error) return res.status(camsCheck.status).json({ error: camsCheck.error });
+  const plansCheck = checkPlans(req.body);
+  if (plansCheck.error) return res.status(plansCheck.status).json({ error: plansCheck.error });
   if ((activityType ? activityType.trim() : '') === 'sentinela' && talk.talkNumber === null) {
     return res.status(400).json({ error: SENTINELA_NEEDS_TALK });
   }
@@ -601,7 +660,8 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
     activityType ? activityType.trim() : '',
     nextOrder,
     talk.talkNumber,
-    camsCheck.cams
+    camsCheck.cams,
+    plansCheck.plans
   );
 
   // If shift had no current item, automatically set this first item
@@ -637,6 +697,8 @@ app.put('/api/items/:id', authenticate('admin'), (req, res) => {
   if (talk.error) return res.status(talk.status).json({ error: talk.error });
   const camsCheck = checkCams(req.body, item);
   if (camsCheck.error) return res.status(camsCheck.status).json({ error: camsCheck.error });
+  const plansCheck = checkPlans(req.body, item);
+  if (plansCheck.error) return res.status(plansCheck.status).json({ error: plansCheck.error });
   const effectiveType = activityType !== undefined ? activityType.trim() : item.activity_type;
   if (effectiveType === 'sentinela' && talk.talkNumber === null) {
     return res.status(400).json({ error: SENTINELA_NEEDS_TALK });
@@ -653,7 +715,8 @@ app.put('/api/items/:id', authenticate('admin'), (req, res) => {
     speaker !== undefined ? speaker.trim() : item.speaker,
     effectiveType,
     talk.talkNumber,
-    camsCheck.cams
+    camsCheck.cams,
+    plansCheck.plans
   );
 
   broadcast('PROGRAM_UPDATED', { shiftId: item.shift_id });
