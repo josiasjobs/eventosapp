@@ -363,6 +363,33 @@ const queries = {
     }
   },
 
+  // Creates one part per playlist (appended after the shift's last part, or replacing them all). One transaction.
+  importPlaylistsAsParts(shiftId, playlists, replace, scheduledTime) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      if (replace) {
+        db.prepare('UPDATE shifts SET current_item_id = NULL WHERE id = ?').run(shiftId);
+        db.prepare('DELETE FROM items WHERE shift_id = ?').run(shiftId);
+      }
+      let itemOrder = db.prepare('SELECT COALESCE(MAX(order_num), 0) AS max FROM items WHERE shift_id = ?').get(shiftId).max + 1;
+      let mediasCount = 0;
+      playlists.forEach((playlist, index) => {
+        const title = (playlist.name || '').trim() || `Playlist ${index + 1}`;
+        const itemId = this.createItem(shiftId, title, scheduledTime, '', '', '', itemOrder++);
+        let mediaOrder = 1;
+        for (const m of playlist.medias) {
+          this.createMedia(itemId, m.title, m.type, m.reference, mediaOrder++);
+          mediasCount++;
+        }
+      });
+      db.exec('COMMIT;');
+      return { partsCount: playlists.length, mediasCount };
+    } catch (e) {
+      db.exec('ROLLBACK;');
+      throw e;
+    }
+  },
+
   // Sessions
   createSession(token, role, ipAddress, expiresAt) {
     return db.prepare('INSERT INTO sessions (token, role, ip_address, expires_at) VALUES (?, ?, ?, ?)').run(token, role, ipAddress, expiresAt);

@@ -601,7 +601,7 @@ const UIDirector = {
       const keepsQuestions = item && item.activity_type === 'sentinela'
         ? ' As perguntas continuam; Substituir troca só as mídias.' : '';
       const mode = count === 0 ? 'append' : await Modals.askChoice({
-        title: 'Importar playlist',
+        title: 'Importar JW Playlist',
         text: `Esta parte já tem ${count} ${count === 1 ? 'mídia' : 'mídias'}.${keepsQuestions}`,
         options: [
           { value: 'append', label: 'Adicionar abaixo', icon: 'plus', style: 'accent' },
@@ -636,7 +636,6 @@ const UIDirector = {
   openItemMenu(anchorEl, itemId) {
     this.openRowMenu(anchorEl, [
       { icon: 'pencil', label: 'Editar parte', onClick: () => Modals.openItemModal(itemId) },
-      { icon: 'download', label: 'Importar playlist', onClick: () => this.importPlaylist(itemId) },
       { icon: 'trash', label: 'Excluir parte', danger: true, onClick: () => this.deleteItem(itemId) }
     ]);
   },
@@ -742,7 +741,7 @@ const UIDirector = {
     armed.el.classList.remove('is-armed');
   },
 
-  // Floating + (edit mode only): Parte / Mídia (Mídia needs a current part)
+  // Floating + (edit mode only): Parte / Mídia / imports (Mídia and JW Playlist need a current part)
   bindFab() {
     const fab = document.getElementById('fab-add');
     const menu = document.getElementById('fab-menu');
@@ -751,10 +750,17 @@ const UIDirector = {
       if (menu.hidden) this.openFabMenu(); else this.closeFabMenu();
     });
     menu.addEventListener('click', (e) => {
+      if (e.target.closest('#fab-help')) {
+        this.closeFabMenu();
+        Modals.open('modal-fab-help');
+        return;
+      }
       const opt = e.target.closest('[data-fab]');
       if (!opt || opt.disabled) return;
       this.closeFabMenu();
       if (opt.dataset.fab === 'item') Modals.openItemModal();
+      else if (opt.dataset.fab === 'jwplaylist' && AppState.currentItemId) this.importPlaylist(AppState.currentItemId);
+      else if (opt.dataset.fab === 'jwlibrary') Modals.importJwLibrary();
       else if (opt.dataset.fab === 'sentinela') Modals.openItemModal(null, { sentinela: true });
       else if (opt.dataset.fab === 'question' && AppState.currentItemId) {
         // prefill § and side from the last question; no afterId, so it appends
@@ -772,6 +778,8 @@ const UIDirector = {
     if (!fab || !menu) return;
     const mediaOpt = menu.querySelector('[data-fab="media"]');
     if (mediaOpt) mediaOpt.disabled = !AppState.getCurrentItem();
+    const playlistOpt = menu.querySelector('[data-fab="jwplaylist"]');
+    if (playlistOpt) playlistOpt.disabled = !AppState.getCurrentItem();
     const questionOpt = menu.querySelector('[data-fab="question"]');
     const current = AppState.getCurrentItem();
     if (questionOpt) questionOpt.hidden = !(current && current.activity_type === 'sentinela');

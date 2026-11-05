@@ -57,8 +57,14 @@
     <!-- BOTAO + FLUTUANTE (so com a edicao ligada) -->
     <div class="fab edit-only" id="fab">
       <div class="fab-menu" id="fab-menu" role="menu" hidden>
+        <div class="fab-menu-head">
+          <span>Adicionar</span>
+          <button type="button" class="icon-btn fab-help" id="fab-help" title="Ajuda" aria-label="Ajuda" data-icon="help"></button>
+        </div>
         <button type="button" class="fab-option" data-fab="item" role="menuitem"><span data-icon="list"></span><span>Parte</span></button>
         <button type="button" class="fab-option" data-fab="media" role="menuitem"><span data-icon="file"></span><span>Mídia</span></button>
+        <button type="button" class="fab-option" data-fab="jwplaylist" role="menuitem"><span data-icon="download"></span><span>Importar JW Playlist</span></button>
+        <button type="button" class="fab-option" data-fab="jwlibrary" role="menuitem"><span data-icon="download"></span><span>Importar BK JW</span></button>
         <button type="button" class="fab-option" data-fab="sentinela" role="menuitem"><span data-icon="book"></span><span>Sentinela</span></button>
         <button type="button" class="fab-option" data-fab="question" role="menuitem" hidden><span data-icon="user"></span><span>Pergunta</span></button>
       </div>
@@ -455,6 +461,26 @@
         </div>
         <div class="modal-body" id="quick-form-fields"></div>
       </form>
+    </div>
+  </div>
+
+  <!-- Ajuda do botão + (aberta pelo ? do menu) -->
+  <div class="modal-backdrop" id="modal-fab-help">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title">Botão +</h2>
+        <button type="button" class="icon-btn" data-help-close title="Fechar" aria-label="Fechar" data-icon="x"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="fab-help-list">
+          <dt>Parte</dt><dd>Cria uma parte nova no turno.</dd>
+          <dt>Mídia</dt><dd>Adiciona uma mídia à parte selecionada.</dd>
+          <dt>Importar JW Playlist</dt><dd>Somente uma playlist: importa um arquivo .jwlplaylist e coloca as mídias dele na parte selecionada.</dd>
+          <dt>Importar BK JW</dt><dd>Todas as playlists: importa um backup .jwlibrary do JW Library. Cada playlist com itens vira uma parte, no turno que você escolher.</dd>
+          <dt>Sentinela</dt><dd>Cria a parte da Sentinela, com perguntas por parágrafo e lado. Só uma por turno.</dd>
+          <dt>Pergunta</dt><dd>Aparece quando a parte selecionada é a Sentinela. Adiciona uma pergunta com parágrafo, lado e participante.</dd>
+        </dl>
+      </div>
     </div>
   </div>
 
