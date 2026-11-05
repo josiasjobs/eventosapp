@@ -64,14 +64,16 @@
   .type { flex: none; width: 6.4em; display: flex; align-items: center; gap: 4px; color: var(--text-2); font-size: 8.5pt; }
   .media-text { display: flex; flex-direction: column; min-width: 0; }
   .media-title { overflow-wrap: anywhere; }
-  .empty { padding: 4px 10px 8px; font-size: 9.5pt; color: var(--text-2); font-style: italic; }`;
+  .empty { padding: 4px 10px 8px; font-size: 9.5pt; color: var(--text-2); font-style: italic; }
+  .plan { display: flex; align-items: center; gap: 6px; font-size: 9pt; color: var(--text-2); }`;
 
   const PROGRAM_CSS = `
   .part { break-inside: avoid; page-break-inside: avoid; margin-bottom: 10px;
     border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius); }
   .medias { list-style: none; margin: 4px 0 0; padding: 0 10px 4px; }
   .media { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; border-top: 1px solid var(--line); }
-  .media:first-child { border-top: none; }`;
+  .media:first-child { border-top: none; }
+  .part > .plan { padding: 4px 10px; }`;
 
   const SENTINELA_CSS = `
   .sent-part { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius);
@@ -89,7 +91,8 @@
   .pphoto { width: 1.8cm; height: 2.4cm; object-fit: cover; border-radius: 3px; margin-bottom: 2px; }
   .person span { color: var(--text-2); font-size: 9pt; }
   .cam { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--text-2); font-size: 9pt; }
-  .media-line { display: flex; gap: 10px; align-items: flex-start; text-align: left; }`;
+  .media-line { display: flex; gap: 10px; align-items: flex-start; text-align: left; }
+  td .plan { justify-content: center; }`;
 
   function pageHtml({ title, css, chips, body, icon }) {
     return `<!doctype html>
@@ -139,7 +142,13 @@
             ${extraMeta}
             ${item.description ? `<span class="notes">${esc(item.description)}</span>` : ''}
           </div>` : ''}`;
-    return { icon, mediaInner, partHeadHtml };
+    // Entrada ('in') ou saída ('out') de câmera da parte; vazio quando a parte não tem plano
+    const planLineHtml = (kind, plan) => {
+      if (!plan) return '';
+      const arrow = kind === 'in' ? '↑ Entrada' : '↓ Saída';
+      return `<div class="plan plan-${kind}">${icon('video', 14)}<span>${arrow} · ${esc(Logic.planLabel(plan))}</span></div>`;
+    };
+    return { icon, mediaInner, partHeadHtml, planLineHtml };
   }
 
   const contextOf = (data) => [data.dayLabel, data.shiftName].filter(Boolean).join(' · ');
@@ -148,7 +157,7 @@
   //         items: [{ scheduled_time, title, speaker, description, talk_number, medias: [{ type, title, reference }] }] }
   // opts: { icon(name, size) -> svg string, typeIcons: { [mediaType]: iconName } } — sem eles, só texto
   function buildProgramHtml(data, opts = {}) {
-    const { icon, mediaInner, partHeadHtml } = makeHelpers(opts);
+    const { icon, mediaInner, partHeadHtml, planLineHtml } = makeHelpers(opts);
     const context = contextOf(data);
 
     const partHtml = (item) => {
@@ -156,9 +165,11 @@
       return `
         <section class="part">
           ${partHeadHtml(item)}
+          ${planLineHtml('in', item.plan_in)}
           ${medias.length
             ? `<ul class="medias">${medias.map(m => `<li class="media">${mediaInner(m)}</li>`).join('')}</ul>`
             : '<div class="empty">Sem mídias</div>'}
+          ${planLineHtml('out', item.plan_out)}
         </section>`;
     };
 
@@ -175,8 +186,14 @@
 
   // data: same as buildProgramHtml; items holds the shift's Sentinela (its steps in medias)
   function buildSentinelaHtml(data, opts = {}) {
-    const { icon, mediaInner, partHeadHtml } = makeHelpers(opts);
+    const { icon, mediaInner, partHeadHtml, planLineHtml } = makeHelpers(opts);
     const context = contextOf(data);
+
+    // Entrada/saída como linha da tabela (a primeira e a última), ou nada se a parte não tem plano
+    const planRow = (kind, plan) => {
+      const line = planLineHtml(kind, plan);
+      return line ? `<tr class="plan-${kind}"><td colspan="3">${line}</td></tr>` : '';
+    };
 
     // Photo above the name, only when asked and valid (never an arbitrary URL)
     const photoHtml = (s) => data.withPhotos && s.photo && Logic.isValidPhoto(s.photo)
@@ -210,9 +227,9 @@
         </section>
         ${steps.length ? `<table class="sent">
           <thead><tr><th class="para"></th><th>ESQUERDA</th><th>DIREITA</th></tr></thead>
-          <tbody>${Logic.groupSentinelaSteps(steps).map(c => rowHtml(item, c)).join('')}
+          <tbody>${planRow('in', item.plan_in)}${Logic.groupSentinelaSteps(steps).map(c => rowHtml(item, c)).join('')}${planRow('out', item.plan_out)}
           </tbody>
-        </table>` : '<div class="empty">Sem passos</div>'}`;
+        </table>` : `${planLineHtml('in', item.plan_in)}<div class="empty">Sem passos</div>${planLineHtml('out', item.plan_out)}`}`;
     };
 
     return pageHtml({

@@ -282,3 +282,27 @@ test('partBadgesHtml: presidente and talk number badges', () => {
   assert.equal(L.partBadgesHtml({ talk_number: 12 }, esc), '<span class="talk-badge">Nº 12</span>');
   assert.equal(L.partBadgesHtml({ activity_type: '' }, esc), '');
 });
+
+test('checkCameraPlan valida sigla, nome, câmera e preset', () => {
+  const ok = { sigla: 'PP', name: 'Plano presidente', camera: 2, preset: 4 };
+  assert.equal(L.checkCameraPlan(ok), null);
+  assert.equal(L.checkCameraPlan({ ...ok, sigla: '  ' }), 'Informe a sigla (até 8 caracteres).');
+  assert.equal(L.checkCameraPlan({ ...ok, sigla: 'ABCDEFGHI' }), 'Informe a sigla (até 8 caracteres).');
+  assert.equal(L.checkCameraPlan({ ...ok, name: '' }), 'Informe o nome do plano.');
+  assert.equal(L.checkCameraPlan({ ...ok, camera: 0 }), 'Câmera e preset devem ser números inteiros maiores que zero.');
+  assert.equal(L.checkCameraPlan({ ...ok, preset: '1.5' }), 'Câmera e preset devem ser números inteiros maiores que zero.');
+  assert.equal(L.checkCameraPlan({ ...ok, preset: '' }), 'Câmera e preset devem ser números inteiros maiores que zero.');
+});
+
+test('planLabel monta sigla · nome · CAM · P', () => {
+  assert.equal(L.planLabel({ sigla: 'PP', name: 'Plano presidente', camera: 2, preset: 4 }), 'PP · Plano presidente · CAM 2 · P4');
+  assert.equal(L.planLabel(null), '');
+});
+
+test('planSiglas mostra a transição da parte', () => {
+  const pp = { sigla: 'PP' }, pa = { sigla: 'PA' };
+  assert.equal(L.planSiglas({ plan_in: pp, plan_out: pa }), 'PP → PA');
+  assert.equal(L.planSiglas({ plan_in: pp, plan_out: null }), 'PP →');
+  assert.equal(L.planSiglas({ plan_in: null, plan_out: pa }), '→ PA');
+  assert.equal(L.planSiglas({}), '');
+});

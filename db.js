@@ -5,6 +5,7 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
+const { checkCameraPlan, parsePositiveInt } = require('./public/js/logic.js');
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
@@ -72,6 +73,16 @@ function initSchema() {
       updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
     );
 
+    -- Catálogo de planos de câmera
+    CREATE TABLE IF NOT EXISTS camera_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sigla TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      name TEXT NOT NULL,
+      camera INTEGER NOT NULL,
+      preset INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
     -- Mídias vinculadas ao Item
     CREATE TABLE IF NOT EXISTS medias (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,6 +129,8 @@ function initSchema() {
     'ALTER TABLE items ADD COLUMN cam_left INTEGER',
     'ALTER TABLE items ADD COLUMN cam_right INTEGER',
     'ALTER TABLE items ADD COLUMN cam_speaker INTEGER',
+    'ALTER TABLE items ADD COLUMN plan_in_id INTEGER REFERENCES camera_plans(id) ON DELETE SET NULL',
+    'ALTER TABLE items ADD COLUMN plan_out_id INTEGER REFERENCES camera_plans(id) ON DELETE SET NULL',
     'ALTER TABLE medias ADD COLUMN paragraph INTEGER',
     "ALTER TABLE medias ADD COLUMN side TEXT DEFAULT ''",
     "ALTER TABLE medias ADD COLUMN person TEXT DEFAULT ''",
@@ -217,6 +230,39 @@ const queries = {
     return db.prepare('UPDATE shifts SET current_item_id = ? WHERE id = ?').run(currentItemId, shiftId);
   },
 
+  // Camera plans catalog
+  listCameraPlans() {
+    return db.prepare(`
+      SELECT p.id, p.sigla, p.name, p.camera, p.preset,
+             (SELECT COUNT(*) FROM items i WHERE i.plan_in_id = p.id OR i.plan_out_id = p.id) AS usage
+      FROM camera_plans p
+      ORDER BY p.sigla COLLATE NOCASE ASC
+    `).all();
+  },
+
+  getCameraPlan(id) {
+    return db.prepare('SELECT * FROM camera_plans WHERE id = ?').get(id);
+  },
+
+  getCameraPlanBySigla(sigla) {
+    return db.prepare('SELECT * FROM camera_plans WHERE sigla = ? COLLATE NOCASE').get(String(sigla ?? '').trim());
+  },
+
+  createCameraPlan({ sigla, name, camera, preset }) {
+    const res = db.prepare('INSERT INTO camera_plans (sigla, name, camera, preset) VALUES (?, ?, ?, ?)')
+      .run(String(sigla).trim(), String(name).trim(), parsePositiveInt(camera), parsePositiveInt(preset));
+    return Number(res.lastInsertRowid);
+  },
+
+  updateCameraPlan(id, { sigla, name, camera, preset }) {
+    return db.prepare('UPDATE camera_plans SET sigla = ?, name = ?, camera = ?, preset = ? WHERE id = ?')
+      .run(String(sigla).trim(), String(name).trim(), parsePositiveInt(camera), parsePositiveInt(preset), id);
+  },
+
+  deleteCameraPlan(id) {
+    return db.prepare('DELETE FROM camera_plans WHERE id = ?').run(id);
+  },
+
   // Items
   getItemsByShift(shiftId) {
     return db.prepare('SELECT * FROM items WHERE shift_id = ? ORDER BY order_num ASC, id ASC').all(shiftId);
@@ -226,25 +272,25 @@ const queries = {
     return db.prepare('SELECT * FROM items WHERE id = ?').get(id);
   },
 
-  createItem(shiftId, title, scheduledTime, description, speaker, activityType, orderNum, talkNumber = null, cams = {}) {
+  createItem(shiftId, title, scheduledTime, description, speaker, activityType, orderNum, talkNumber = null, cams = {}, plans = {}) {
     const res = db.prepare(`
       INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, talk_number,
-                         cam_left, cam_right, cam_speaker)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         cam_left, cam_right, cam_speaker, plan_in_id, plan_out_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(shiftId, title, scheduledTime, description || '', speaker || '', activityType || '', orderNum, talkNumber,
-      cams.left ?? null, cams.right ?? null, cams.speaker ?? null);
+      cams.left ?? null, cams.right ?? null, cams.speaker ?? null, plans.inId ?? null, plans.outId ?? null);
     return res.lastInsertRowid;
   },
 
-  updateItem(id, title, scheduledTime, description, speaker, activityType, talkNumber = null, cams = {}) {
+  updateItem(id, title, scheduledTime, description, speaker, activityType, talkNumber = null, cams = {}, plans = {}) {
     return db.prepare(`
       UPDATE items
       SET title = ?, scheduled_time = ?, description = ?, speaker = ?, activity_type = ?, talk_number = ?,
-          cam_left = ?, cam_right = ?, cam_speaker = ?,
+          cam_left = ?, cam_right = ?, cam_speaker = ?, plan_in_id = ?, plan_out_id = ?,
           updated_at = datetime('now', 'localtime')
       WHERE id = ?
     `).run(title, scheduledTime, description || '', speaker || '', activityType || '', talkNumber,
-      cams.left ?? null, cams.right ?? null, cams.speaker ?? null, id);
+      cams.left ?? null, cams.right ?? null, cams.speaker ?? null, plans.inId ?? null, plans.outId ?? null, id);
   },
 
   // Another part of the same event (the shift's event) that already uses this talk number
@@ -413,7 +459,12 @@ const queries = {
     if (!shift) return null;
 
     const items = db.prepare('SELECT * FROM items WHERE shift_id = ? ORDER BY order_num ASC, id ASC').all(shiftId);
+    const plansById = new Map(this.listCameraPlans().map(p => [p.id, {
+      id: p.id, sigla: p.sigla, name: p.name, camera: p.camera, preset: p.preset
+    }]));
     for (const item of items) {
+      item.plan_in = plansById.get(item.plan_in_id) || null;
+      item.plan_out = plansById.get(item.plan_out_id) || null;
       item.medias = db.prepare('SELECT * FROM medias WHERE item_id = ? ORDER BY order_num ASC, id ASC').all(item.id);
     }
 
@@ -439,7 +490,15 @@ const queries = {
         director_pin_hash: event.director_pin_hash,
         admin_pin_hash: event.admin_pin_hash
       },
+      camera_plans: [],
       days: []
+    };
+    const usedPlans = new Map();
+    const planSigla = (planId) => {
+      const plan = planId == null ? null : this.getCameraPlan(planId);
+      if (!plan) return null;
+      usedPlans.set(plan.id, { sigla: plan.sigla, name: plan.name, camera: plan.camera, preset: plan.preset });
+      return plan.sigla;
     };
 
     for (const day of days) {
@@ -472,6 +531,8 @@ const queries = {
             cam_left: item.cam_left ?? null,
             cam_right: item.cam_right ?? null,
             cam_speaker: item.cam_speaker ?? null,
+            plan_in: planSigla(item.plan_in_id),
+            plan_out: planSigla(item.plan_out_id),
             order_num: item.order_num,
             completed: item.completed ? 1 : 0,
             medias: []
@@ -501,6 +562,7 @@ const queries = {
       backupData.days.push(dayObj);
     }
 
+    backupData.camera_plans = [...usedPlans.values()];
     return backupData;
   },
 
@@ -544,6 +606,13 @@ const queries = {
       );
       const newEventId = eventRes.lastInsertRowid;
 
+      // Plans: use the local catalog when the sigla exists, create what is missing, never update
+      const backupPlans = Array.isArray(backupData.camera_plans) ? backupData.camera_plans : [];
+      for (const plan of backupPlans) {
+        if (!plan || checkCameraPlan(plan) !== null) continue;
+        if (!this.getCameraPlanBySigla(plan.sigla)) this.createCameraPlan(plan);
+      }
+
       const days = Array.isArray(backupData.days) ? backupData.days : [];
       for (const day of days) {
         const dayRes = db.prepare(`
@@ -564,8 +633,8 @@ const queries = {
           for (const item of items) {
             const itemRes = db.prepare(`
               INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, completed, talk_number,
-                                 cam_left, cam_right, cam_speaker)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 cam_left, cam_right, cam_speaker, plan_in_id, plan_out_id)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
               newShiftId,
               item.title || '',
@@ -578,7 +647,9 @@ const queries = {
               item.talk_number ?? null,
               item.cam_left ?? null,
               item.cam_right ?? null,
-              item.cam_speaker ?? null
+              item.cam_speaker ?? null,
+              this.getCameraPlanBySigla(item.plan_in)?.id ?? null,
+              this.getCameraPlanBySigla(item.plan_out)?.id ?? null
             );
             const newItemId = itemRes.lastInsertRowid;
 

@@ -123,9 +123,11 @@ const UIDirector = {
 
         ${currentItem.description ? `<p class="current-notes">${uiEsc(currentItem.description)}</p>` : ''}
 
+        ${this.planRowHtml(currentItem.plan_in, 'in')}
         <div class="media-list${sentinela ? ' sent-list' : ''}" id="medias-checklist-list">
           ${mediasHtml}
         </div>
+        ${this.planRowHtml(currentItem.plan_out, 'out')}
       </article>
     `;
 
@@ -138,6 +140,12 @@ const UIDirector = {
         if (target && target.offsetParent !== null) target.scrollIntoView({ block: 'nearest' });
       }
     }
+  },
+
+  // Entry / exit camera plan strip: informational, outside the media list
+  planRowHtml(plan, dir) {
+    if (!plan) return '';
+    return `<div class="plan-row plan-${dir}">${icon('video', 16)}<span>${dir === 'in' ? '↑ Entrada' : '↓ Saída'} · ${uiEsc(Logic.planLabel(plan))}</span></div>`;
   },
 
   // Media row with the manual ☐ (plain parts, Sentinela media cards and the Sentinela edit list)
@@ -286,6 +294,7 @@ const UIDirector = {
              data-item-id="${id}" role="button" tabindex="0"${isCurrent ? ' aria-current="true"' : ''}>
           <span class="part-time tnum">${uiEsc(item.scheduled_time)}</span>
           <span class="part-title">${this.talkBadgeHtml(item)}${uiEsc(item.title)}</span>
+          ${Logic.planSiglas(item) ? `<span class="part-plans">${uiEsc(Logic.planSiglas(item))}</span>` : ''}
           ${uiIconButton('more', 'Ações da parte', 'data-action="item-menu" aria-haspopup="menu" aria-expanded="false"', 'more-btn edit-only')}
           <button type="button" class="dot is-${status}" data-action="toggle-item"
                   title="${label}" aria-label="${label}" aria-pressed="${status === 'done'}"></button>

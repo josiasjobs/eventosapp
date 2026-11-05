@@ -33,6 +33,8 @@
         aria-label="Ligar ou desligar a edição" aria-pressed="false" data-icon="pencil"></button>
       <button type="button" class="icon-btn edit-only" id="btn-print-program" title="Imprimir"
         aria-label="Imprimir roteiro do turno" data-icon="printer"></button>
+      <button type="button" class="icon-btn edit-only" id="btn-camera-plans" title="Planos de câmera"
+        aria-label="Planos de câmera" data-icon="video"></button>
       <button type="button" class="icon-btn edit-only" id="btn-open-settings" title="Configurações"
         aria-label="Configurações" data-icon="gear"></button>
     </header>
@@ -194,6 +196,15 @@
           <div class="form-group">
             <label class="form-label" for="item-speaker">Orador</label>
             <input type="text" class="form-input" id="item-speaker" name="itemSpeaker" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="item-plan-in">Plano de entrada</label>
+            <select class="form-input" id="item-plan-in" name="itemPlanIn"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="item-plan-out">Plano de saída</label>
+            <select class="form-input" id="item-plan-out" name="itemPlanOut"></select>
+            <p class="form-hint" id="item-plan-hint" hidden>Cadastre planos no botão da câmera.</p>
           </div>
           <div class="form-group">
             <label class="form-label" for="item-description">Observações</label>
@@ -482,6 +493,20 @@
           <dt>Sentinela</dt><dd>Cria a parte da Sentinela, com perguntas por parágrafo e lado. Só uma por turno.</dd>
           <dt>Pergunta</dt><dd>Aparece quando a parte selecionada é a Sentinela. Adiciona uma pergunta com parágrafo, lado e participante.</dd>
         </dl>
+      </div>
+    </div>
+  </div>
+
+  <!-- Catálogo de planos de câmera (botão da barra de cima) -->
+  <div class="modal-backdrop" id="modal-camera-plans">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title">Planos de câmera</h2>
+        <button type="button" class="icon-btn" data-plans-close title="Fechar" aria-label="Fechar" data-icon="x"></button>
+      </div>
+      <div class="modal-body">
+        <div class="plan-list" id="camera-plans-list"></div>
+        <button type="button" class="btn btn-secondary settings-block-btn" id="camera-plans-new">+ Novo plano</button>
       </div>
     </div>
   </div>

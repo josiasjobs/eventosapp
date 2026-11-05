@@ -393,3 +393,11 @@
 .row-muted-date { font-weight: 400; color: var(--text-2); }
 .row-static { cursor: default; }
 .modal-body-flush { padding: 0; }
+
+/* Planos de camera: catalogo */
+.plan-list { display: flex; flex-direction: column; margin-bottom: 12px; }
+.plan-row { display: flex; align-items: center; gap: 10px; min-height: var(--tap); border-bottom: 1px solid var(--border); }
+.plan-sigla { flex: none; min-width: 2.5ch; }
+.plan-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.plan-meta { flex: none; color: var(--text-2); font-size: var(--fs-small); white-space: nowrap; }
+.plan-empty { margin: 0 0 12px; color: var(--text-2); }
