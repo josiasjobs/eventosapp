@@ -50,6 +50,8 @@
   .part-head { display: flex; gap: 10px; align-items: baseline; padding: 6px 10px; background: var(--surface); }
   .num { padding: 0 6px; border: 1px solid var(--text); border-radius: var(--radius); font-weight: 700;
     font-size: 9.5pt; white-space: nowrap; }
+  .role { padding: 0 6px; border-radius: var(--radius); background: var(--text); color: #fff; font-weight: 700;
+    font-size: 9pt; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
   .time { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
   .part-title { font-weight: 700; font-size: 11.5pt; }
   .meta { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; row-gap: 2px;
@@ -127,6 +129,7 @@
     };
     const partHeadHtml = (item, extraMeta = '') => `
           <div class="part-head">
+            ${item.activity_type === 'presidente' ? '<span class="role">Presidente</span>' : ''}
             ${item.talk_number ? `<span class="num">Nº ${esc(item.talk_number)}</span>` : ''}
             <span class="time">${esc(item.scheduled_time)}</span>
             <span class="part-title">${esc(item.title)}</span>

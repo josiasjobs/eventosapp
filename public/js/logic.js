@@ -182,6 +182,13 @@
     return (items || []).some((i) => i.activity_type === 'sentinela' && i.id !== exceptId);
   }
 
+  // Badges before a part title: "Presidente" for the chairman part, "Nº 12" for a talk
+  function partBadgesHtml(item, esc) {
+    const role = item.activity_type === 'presidente' ? '<span class="role-badge">Presidente</span>' : '';
+    const talk = item.talk_number ? `<span class="talk-badge">Nº ${esc(item.talk_number)}</span>` : '';
+    return role + talk;
+  }
+
   // Theater and interview keep the camera preset in the notes field
   const PRESET_TYPES = ['theater', 'interview'];
   function notesLabel(type) {
@@ -223,5 +230,5 @@
     return value.length <= PHOTO_MAX_LENGTH && PHOTO_PATTERN.test(value);
   }
 
-  return { notesLabel, mediaNotesText, shiftHasSentinela, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials, coverScale, clampPan, fitWithin, isValidPhoto };
+  return { partBadgesHtml, notesLabel, mediaNotesText, shiftHasSentinela, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials, coverScale, clampPan, fitWithin, isValidPhoto };
 });

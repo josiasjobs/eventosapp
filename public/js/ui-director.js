@@ -55,9 +55,9 @@ const UIDirector = {
     labelEl.textContent = day && shift ? `${day.label} · ${shift.name}` : 'Sem turno';
   },
 
-  // "Nº 12" before the title of a talk part
+  // "Presidente" / "Nº 12" before the title of a part
   talkBadgeHtml(item) {
-    return item.talk_number ? `<span class="talk-badge">Nº ${uiEsc(item.talk_number)}</span>` : '';
+    return Logic.partBadgesHtml(item, uiEsc);
   },
 
   // Empty state: icon + short sentence (adding is done with the floating + in edit mode)
@@ -761,6 +761,7 @@ const UIDirector = {
       if (opt.dataset.fab === 'item') Modals.openItemModal();
       else if (opt.dataset.fab === 'jwplaylist' && AppState.currentItemId) this.importPlaylist(AppState.currentItemId);
       else if (opt.dataset.fab === 'jwlibrary') Modals.importJwLibrary();
+      else if (opt.dataset.fab === 'presidente') Modals.openItemModal(null, { presidente: true });
       else if (opt.dataset.fab === 'sentinela') Modals.openItemModal(null, { sentinela: true });
       else if (opt.dataset.fab === 'question' && AppState.currentItemId) {
         // prefill § and side from the last question; no afterId, so it appends
