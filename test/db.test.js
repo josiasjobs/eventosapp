@@ -118,3 +118,48 @@ test('importPlaylistsAsParts não muda nada se falhar no meio', () => {
   assert.throws(() => queries.importPlaylistsAsParts(sid, [{ name: 'X', medias: [{ title: null, type: 'other', reference: '' }] }], true, '10:00'));
   assert.deepEqual(queries.getItemsByShift(sid).map(i => i.title), ['Fica']);
 });
+
+test('plano: cria, sigla única sem diferenciar maiúsculas, uso e exclusão', () => {
+  const pp = queries.createCameraPlan({ sigla: 'PP', name: 'Plano presidente', camera: 2, preset: 4 });
+  assert.throws(() => queries.createCameraPlan({ sigla: 'pp', name: 'Outro', camera: 1, preset: 1 }));
+  assert.equal(queries.getCameraPlanBySigla(' pp ').id, pp);
+  const itemId = queries.createItem(shiftId, 'Presidente', '09:00', '', '', 'presidente', 50, null, {}, { inId: pp, outId: pp });
+  assert.equal(queries.listCameraPlans().find(p => p.id === pp).usage, 1);
+  const part = queries.getFullShiftData(shiftId).items.find(i => i.id === itemId);
+  assert.deepEqual(part.plan_in, { id: pp, sigla: 'PP', name: 'Plano presidente', camera: 2, preset: 4 });
+  queries.deleteCameraPlan(pp);
+  const after = queries.getItem(itemId);
+  assert.equal(after.plan_in_id, null);
+  assert.equal(after.plan_out_id, null);
+});
+
+test('backup leva os planos usados; restauração usa o local e cria o que falta', () => {
+  const pa = queries.createCameraPlan({ sigla: 'PA', name: 'Plano aberto', camera: 1, preset: 1 });
+  const sd = queries.createCameraPlan({ sigla: 'SD', name: 'Série discurso', camera: 3, preset: 1 });
+  queries.createCameraPlan({ sigla: 'XX', name: 'Sem uso', camera: 9, preset: 9 });
+  // Earlier tests restored backups, so the active event is a copy: add the part there
+  const activeShift = queries.getShiftsByDay(queries.getDaysByEvent(queries.getActiveEvent().id)[0].id)[0];
+  queries.createItem(activeShift.id, 'Discurso', '10:00', '', 'João', '', 51, null, {}, { inId: pa, outId: sd });
+  const backup = queries.getFullEventBackup();
+  assert.deepEqual(backup.camera_plans.map(p => p.sigla).sort(), ['PA', 'SD']);
+  const part = backup.days[0].shifts[0].items.find(i => i.title === 'Discurso');
+  assert.deepEqual([part.plan_in, part.plan_out], ['PA', 'SD']);
+
+  // On this machine PA has another preset and SD does not exist
+  queries.updateCameraPlan(pa, { sigla: 'PA', name: 'Plano aberto', camera: 1, preset: 7 });
+  queries.deleteCameraPlan(sd);
+  queries.restoreEventBackup(backup, true);
+  assert.equal(queries.getCameraPlanBySigla('PA').preset, 7);
+  assert.equal(queries.getCameraPlanBySigla('SD').camera, 3);
+});
+
+test('restauração: sigla desconhecida fica sem plano; backup antigo sem planos restaura', () => {
+  const backup = queries.getFullEventBackup();
+  const part = backup.days[0].shifts[0].items[0];
+  part.plan_in = 'NAOEXISTE';
+  delete backup.camera_plans;
+  queries.restoreEventBackup(backup, true);
+  const shift = queries.getShiftsByDay(queries.getDaysByEvent(queries.getActiveEvent().id)[0].id)[0];
+  const restored = queries.getFullShiftData(shift.id).items[0];
+  assert.equal(restored.plan_in, null);
+});
