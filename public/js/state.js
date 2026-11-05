@@ -19,6 +19,9 @@ const AppState = {
   selectedDayId: null,
   selectedShiftId: null,
 
+  // Camera plan catalog: [{id, sigla, name, camera, preset, usage}]
+  cameraPlans: [],
+
   // Current Shift Full Data
   shiftData: {
     shift: null,
@@ -77,6 +80,11 @@ const AppState = {
   setWsStatus(connected, state = 'online') {
     this.wsConnected = connected;
     this.notify('WS_STATUS_CHANGED', { connected, state });
+  },
+
+  setCameraPlans(list) {
+    this.cameraPlans = list || [];
+    this.notify('cameraPlans', this.cameraPlans);
   },
 
   setEventHierarchy(event, days) {

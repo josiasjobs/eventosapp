@@ -475,6 +475,91 @@ const Modals = {
     });
   },
 
+  // Camera plan catalog window (top-bar video button)
+  initCameraPlans() {
+    const modal = document.getElementById('modal-camera-plans');
+    if (!modal) return;
+    modal.addEventListener('click', e => {
+      if (e.target === modal || e.target.closest('[data-plans-close]')) { this.close('modal-camera-plans'); return; }
+      if (e.target.closest('#camera-plans-new')) { this.openCameraPlanForm(); return; }
+      const more = e.target.closest('[data-plan-menu]');
+      if (more) this.openCameraPlanMenu(more, Number(more.dataset.planMenu));
+    });
+    AppState.subscribe(type => {
+      if (type === 'cameraPlans' && modal.classList.contains('open')) this.renderCameraPlans();
+    });
+  },
+
+  openCameraPlans() {
+    this.renderCameraPlans();
+    this.open('modal-camera-plans');
+  },
+
+  renderCameraPlans() {
+    const esc = Logic.escapeHtml;
+    const plans = AppState.cameraPlans || [];
+    document.getElementById('camera-plans-list').innerHTML = plans.length
+      ? plans.map(p => `
+        <div class="plan-row">
+          <strong class="plan-sigla">${esc(p.sigla)}</strong>
+          <span class="plan-name">${esc(p.name)}</span>
+          <span class="plan-meta">CAM ${esc(p.camera)} · P${esc(p.preset)}</span>
+          <button type="button" class="icon-btn" data-plan-menu="${esc(p.id)}" title="Mais" aria-label="Mais opções">${window.icon('more')}</button>
+        </div>`).join('')
+      : '<p class="plan-empty">Nenhum plano cadastrado.</p>';
+  },
+
+  openCameraPlanMenu(anchorEl, id) {
+    const plan = (AppState.cameraPlans || []).find(p => p.id === id);
+    if (!plan) return;
+    UIDirector.openRowMenu(anchorEl, [
+      { icon: 'pencil', label: 'Editar', onClick: () => this.openCameraPlanForm(plan) },
+      { icon: 'trash', label: 'Excluir', danger: true, onClick: () => this.deleteCameraPlan(plan) }
+    ]);
+  },
+
+  // plan omitted = new plan
+  openCameraPlanForm(plan = null) {
+    this.openQuickForm({
+      title: plan ? 'Editar plano' : 'Novo plano',
+      fields: [
+        { name: 'sigla', label: 'Sigla', type: 'text', value: plan ? plan.sigla : '', required: true },
+        { name: 'name', label: 'Nome', type: 'text', value: plan ? plan.name : '', required: true },
+        { name: 'camera', label: 'Câmera', type: 'number', value: plan ? plan.camera : '', required: true },
+        { name: 'preset', label: 'Preset', type: 'number', value: plan ? plan.preset : '', required: true }
+      ],
+      onSubmit: async v => {
+        const data = { sigla: v.sigla, name: v.name, camera: Number(v.camera), preset: Number(v.preset) };
+        const problem = Logic.checkCameraPlan(data);
+        if (problem) throw new Error(problem);
+        if (plan) await Api.updateCameraPlan(plan.id, data);
+        else await Api.createCameraPlan(data);
+        AppState.setCameraPlans(await Api.getCameraPlans());
+        this.openCameraPlans();
+      },
+      onCancel: () => this.openCameraPlans()
+    });
+  },
+
+  async deleteCameraPlan(plan) {
+    if (plan.usage > 0) {
+      const pick = await this.askChoice({
+        title: 'Excluir plano',
+        text: plan.usage === 1 ? '1 parte usa este plano.' : `${plan.usage} partes usam este plano.`,
+        options: [{ value: 'delete', label: 'Excluir', icon: 'trash', style: 'danger' }]
+      });
+      if (pick !== 'delete') { this.openCameraPlans(); return; }
+    }
+    try {
+      await Api.deleteCameraPlan(plan.id);
+      AppState.setCameraPlans(await Api.getCameraPlans());
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+    } catch (err) {
+      window.showToast(err.message, 'error');
+    }
+    this.openCameraPlans();
+  },
+
   initChoice() {
     const modal = document.getElementById('modal-choice');
     if (!modal) return;

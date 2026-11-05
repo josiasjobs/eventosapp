@@ -167,6 +167,23 @@ const Api = {
     });
   },
 
+  // Camera plans
+  async getCameraPlans() {
+    return this.request('/api/camera-plans');
+  },
+
+  async createCameraPlan(data) {
+    return this.request('/api/camera-plans', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  async updateCameraPlan(id, data) {
+    return this.request(`/api/camera-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+
+  async deleteCameraPlan(id) {
+    return this.request(`/api/camera-plans/${id}`, { method: 'DELETE' });
+  },
+
   // Items Endpoints
   async createItem(data) {
     return this.request('/api/items', {
@@ -376,6 +393,11 @@ const SocketClient = {
         if (!msg.data.shiftId || msg.data.shiftId === AppState.selectedShiftId) {
           window.dispatchEvent(new CustomEvent('refresh-shift-data'));
         }
+        break;
+
+      case 'CAMERA_PLANS_UPDATED':
+        window.dispatchEvent(new CustomEvent('refresh-camera-plans'));
+        window.dispatchEvent(new CustomEvent('refresh-shift-data'));
         break;
 
       case 'EVENT_UPDATED':

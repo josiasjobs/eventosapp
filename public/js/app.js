@@ -61,7 +61,7 @@ async function initApp() {
     }
 
     // 4. Load Event & Program Data
-    await loadEventHierarchy();
+    await Promise.all([loadEventHierarchy(), loadCameraPlans()]);
 
     // 5. Connect WebSocket for Real-time LAN sync
     SocketClient.connect();
@@ -106,6 +106,15 @@ async function loadEventHierarchy() {
   }
 }
 
+// Fetch the camera plan catalog
+async function loadCameraPlans() {
+  try {
+    AppState.setCameraPlans(await Api.getCameraPlans());
+  } catch (err) {
+    console.error('Error loading camera plans:', err);
+  }
+}
+
 // Fetch Full Shift Data (Items + Medias)
 async function loadShiftData() {
   if (!AppState.selectedShiftId) {
@@ -138,6 +147,7 @@ function setupEventListeners() {
   Modals.initMediaTypePicker();
   Modals.initChoice();
   Modals.initFabHelp();
+  Modals.initCameraPlans();
   Modals.initTalkField();
   Modals.initQuestionForm();
   const shiftBtn = document.getElementById('btn-shift-picker');
@@ -155,6 +165,12 @@ function setupEventListeners() {
   const settingsBtn = document.getElementById('btn-open-settings');
   if (settingsBtn) {
     settingsBtn.addEventListener('click', () => Modals.openSettingsModal());
+  }
+
+  // Camera plan catalog (edit mode only)
+  const plansBtn = document.getElementById('btn-camera-plans');
+  if (plansBtn) {
+    plansBtn.addEventListener('click', () => Modals.openCameraPlans());
   }
 
   // Printed run sheet of the selected shift (edit mode only)
@@ -240,6 +256,10 @@ function setupEventListeners() {
     }
   });
 
+  window.addEventListener('refresh-camera-plans', () => {
+    loadCameraPlans();
+  });
+
   window.addEventListener('refresh-hierarchy-data', () => {
     loadEventHierarchy();
   });
@@ -247,6 +267,7 @@ function setupEventListeners() {
   window.addEventListener('init-app-data', () => {
     if (!AppState.lanInfo) loadLanInfo();
     loadEventHierarchy();
+    loadCameraPlans();
     SocketClient.connect();
   });
 
