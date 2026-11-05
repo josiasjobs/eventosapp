@@ -238,6 +238,8 @@ const Modals = {
       }
     }
 
+    this.fillPlanSelects(form, found);
+
     // Sentinela: cameras shown, "Discurso" box hidden but checked (the number is required)
     form.querySelector('.cam-group').hidden = !sent;
     form.querySelector('.talk-group .check-label').hidden = sent;
@@ -245,6 +247,20 @@ const Modals = {
 
     this.syncTalkField(form);
     this.open('modal-item-editor');
+  },
+
+  // Rebuilt on every open so the catalog is current; disabled while it is empty
+  fillPlanSelects(form, item) {
+    const plans = AppState.cameraPlans || [];
+    const fill = (select, current) => {
+      select.innerHTML = '<option value="">— Nenhum —</option>' + plans.map(p =>
+        `<option value="${Number(p.id)}">${Logic.escapeHtml(Logic.planLabel(p))}</option>`).join('');
+      select.value = current ? String(current.id) : '';
+      select.disabled = plans.length === 0;
+    };
+    fill(form.itemPlanIn, item && item.plan_in);
+    fill(form.itemPlanOut, item && item.plan_out);
+    document.getElementById('item-plan-hint').hidden = plans.length > 0;
   },
 
   // "Discurso" checkbox shows the talk number field (and requires it)
@@ -272,7 +288,9 @@ const Modals = {
       activityType: this.itemSentinela ? 'sentinela' : this.itemPresidente ? 'presidente' : (original ? (original.activity_type || '') : ''),
       description: form.itemDescription.value.trim(),
       // '' clears the number when "Discurso" is unchecked
-      talkNumber: form.itemIsTalk.checked ? form.itemTalkNumber.value.trim() : ''
+      talkNumber: form.itemIsTalk.checked ? form.itemTalkNumber.value.trim() : '',
+      planInId: form.itemPlanIn.value,
+      planOutId: form.itemPlanOut.value
     };
     if (this.itemSentinela) {
       // '' clears a camera

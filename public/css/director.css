@@ -137,6 +137,17 @@ body.mode-editor .topbar { box-shadow: 0 2px 0 var(--accent); }
 }
 .part-row.is-done .part-title { text-decoration: line-through; color: var(--text-2); }
 
+/* Camera plans in the list: tiny sigla summary that never pushes ⋯ / dot out */
+.part-plans {
+  flex: none;
+  max-width: 9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: var(--fs-small);
+}
+
 /* "Nº 12" before the title of a talk part */
 .talk-badge {
   display: inline-block;
@@ -435,3 +446,17 @@ img.sent-photo, img.step-photo { display: block; object-fit: cover; }
 
 /* Gaveta da programacao (celular) */
 .modal-dialog-schedule .modal-body { padding: 0; }
+
+/* Entry / exit camera plan strip in the current part (not a media row) */
+.current-part .plan-row {
+  min-height: 0;
+  margin: 6px 0;
+  padding: 6px 12px;
+  gap: 8px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  pointer-events: none;
+  user-select: none;
+}
