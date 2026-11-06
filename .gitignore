@@ -8,3 +8,7 @@ coverage/
 .idea/
 .worktrees/
 .superpowers/
+
+# Arquivos temporários do SQLite (gerados ao rodar o app)
+*.db-shm
+*.db-wal
