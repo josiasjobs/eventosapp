@@ -24,6 +24,22 @@
     return `<div class="detail"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
   }
 
+  function buildPrintContext(state, item, generatedAt) {
+    const safeState = state || {};
+    const days = Array.isArray(safeState.days) ? safeState.days : [];
+    const day = days.find(candidate => Number(candidate.id) === Number(safeState.selectedDayId));
+    const shifts = day && Array.isArray(day.shifts) ? day.shifts : [];
+    const shift = shifts.find(candidate => Number(candidate.id) === Number(safeState.selectedShiftId));
+
+    return {
+      eventName: safeState.event && safeState.event.name ? safeState.event.name : '',
+      dayLabel: day && day.label ? day.label : '',
+      shiftName: shift && shift.name ? shift.name : '',
+      item: item || {},
+      generatedAt: generatedAt || ''
+    };
+  }
+
   function renderMedia(media, index) {
     const completed = Boolean(media.completed);
     const status = completed ? 'Concluída' : 'Pendente';
@@ -114,7 +130,7 @@
 </html>`;
   }
 
-  const api = { escapeHtml, buildDocument };
+  const api = { escapeHtml, buildDocument, buildPrintContext };
   root.MediaListPrint = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

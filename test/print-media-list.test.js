@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { escapeHtml, buildDocument } = require('../public/js/print-media-list.js');
+const { escapeHtml, buildDocument, buildPrintContext } = require('../public/js/print-media-list.js');
 
 test('escapeHtml renders untrusted values as text', () => {
   assert.equal(escapeHtml('<script>alert("x")</script> & "ok"'), '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &quot;ok&quot;');
@@ -45,4 +45,26 @@ test('buildDocument renders a useful empty state and omits unavailable metadata'
   assert.match(html, /Nenhuma mídia cadastrada para esta parte\./);
   assert.doesNotMatch(html, /undefined/);
   assert.doesNotMatch(html, /Responsável:/);
+});
+
+test('buildPrintContext derives selected labels and omits unavailable context', () => {
+  const state = {
+    event: { name: 'Conferência Transformados' },
+    days: [
+      { id: 1, label: 'Dia 1', shifts: [{ id: 10, name: 'Noite' }] }
+    ],
+    selectedDayId: 1,
+    selectedShiftId: 10
+  };
+  const item = { title: 'Mensagem', scheduled_time: '20:40', speaker: '', medias: [] };
+
+  assert.deepEqual(buildPrintContext(state, item, '23/10/2026, 20:40'), {
+    eventName: 'Conferência Transformados',
+    dayLabel: 'Dia 1',
+    shiftName: 'Noite',
+    item,
+    generatedAt: '23/10/2026, 20:40'
+  });
+  assert.equal(buildPrintContext({ event: null, days: [] }, item, 'agora').dayLabel, '');
+  assert.equal(buildPrintContext({ event: null, days: [] }, item, 'agora').shiftName, '');
 });
