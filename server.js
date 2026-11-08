@@ -12,6 +12,7 @@ const multer = require('multer');
 const upload = multer({ dest: os.tmpdir() });
 const fs = require('fs');
 const util = require('util');
+const defaultEventTemplate = require('./seed/default-event.json');
 
 const { queries } = require('./db');
 const { readPlaylists, extractUserDb, INVALID: JWL_INVALID } = require('./jwl-reader');
@@ -241,7 +242,7 @@ app.post('/api/setup', async (req, res) => {
       return res.status(400).json({ error: 'O sistema já possui um evento ativo configurado.' });
     }
 
-    const { eventName, category, directorPin, adminPin, firstDayLabel, firstDayDate, firstShiftName } = req.body;
+    const { eventName, category, directorPin, adminPin } = req.body;
 
     if (!eventName || !eventName.trim()) {
       return res.status(400).json({ error: 'O nome do evento é obrigatório.' });
@@ -259,29 +260,8 @@ app.post('/api/setup', async (req, res) => {
     // Create event
     const eventId = queries.createEvent(eventName.trim(), category ? category.trim() : '', dirHash, adminHash);
 
-    // Create default Day
-    const dayLabel = (firstDayLabel && firstDayLabel.trim()) || 'Dia 1';
-    const dayDate = firstDayDate || new Date().toISOString().slice(0, 10);
-    const dayId = queries.createDay(eventId, dayDate, dayLabel, 1);
-
-    // Create default Shift
-    const shiftName = (firstShiftName && firstShiftName.trim()) || 'Geral';
-    const shiftId = queries.createShift(dayId, shiftName, '', '', 1);
-
-    // Create default starter items for a smooth immediate experience
-    const item1Id = queries.createItem(shiftId, 'Abertura & Boas-vindas', '09:00', 'Momento inicial com recepção e introdução ao tema.', 'Equipe de Abertura', 'Abertura', 1);
-    queries.createMedia(item1Id, 'Vídeo de Introdução do Evento', 'video', 'Projetor Principal', 1);
-    queries.createMedia(item1Id, 'Abertura Bíblica', 'bible', 'Salmos 100:1-5', 2);
-
-    const item2Id = queries.createItem(shiftId, 'Momento de Louvor & Adoração', '09:20', 'Período congregacional de música e celebração.', 'Banda Oficial', 'Louvor', 2);
-    queries.createMedia(item2Id, 'Letras das Músicas (Slides)', 'image', 'Apresentação 01', 1);
-
-    const item3Id = queries.createItem(shiftId, 'Mensagem Principal', '10:00', 'Preleção central do período.', 'Preletor Convidado', 'Palavra', 3);
-    queries.createMedia(item3Id, 'Texto Bíblico Base', 'bible', 'João 3:16', 1);
-    queries.createMedia(item3Id, 'Vinheta de Transição', 'video', 'Vídeo 02', 2);
-
-    // Set first item as current item
-    queries.setShiftCurrentItem(shiftId, item1Id);
+    const { firstDayId: dayId, firstShiftId: shiftId, firstItemId } = queries.populateEventFromTemplate(eventId, defaultEventTemplate);
+    if (shiftId && firstItemId) queries.setShiftCurrentItem(shiftId, firstItemId);
 
     // Create Admin session for the creator
     const ip = req.ip || req.connection.remoteAddress;
@@ -480,7 +460,7 @@ app.get('/api/backup/export', authenticate('admin'), (req, res) => {
 
 app.post('/api/backup/restore', authenticate('admin'), (req, res) => {
   try {
-    const { backupData, keepPins } = req.body;
+    const { backupData } = req.body;
     if (!backupData || !backupData.event) {
       return res.status(400).json({ error: 'Dados do backup inválidos ou não informados.' });
     }
@@ -488,7 +468,7 @@ app.post('/api/backup/restore', authenticate('admin'), (req, res) => {
       return res.status(400).json({ error: 'O backup não tem nenhum dia cadastrado.' });
     }
 
-    const result = queries.restoreEventBackup(backupData, keepPins !== false);
+    const result = queries.restoreEventBackup(backupData);
 
     // Notify all connected clients to reload hierarchy and current shift
     broadcast('EVENT_UPDATED', { eventId: result.eventId });

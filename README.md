@@ -24,14 +24,19 @@ Aplicação web local de alta performance para operação e gerenciamento de eve
 
 ## 🚀 Como Executar
 
-### 1. Iniciar o servidor
-Na pasta do projeto, execute:
+### 1. Instalar as dependências
+Na pasta do projeto, execute uma vez:
+```bash
+npm install
+```
+
+### 2. Iniciar o servidor
+Em seguida, execute:
 ```bash
 npm start
 ```
-*(ou `node server.js`)*
 
-### 2. Acessar a aplicação
+### 3. Acessar a aplicação
 - **Na mesma máquina:** Abra seu navegador em:  
   👉 **`http://localhost:3000`**
 - **Em outros dispositivos na mesma rede Wi-Fi / LAN (celulares, tablets, notebooks na cabine):**  
@@ -43,17 +48,32 @@ npm start
 
 O sistema utiliza PINs numéricos de 4 dígitos criptografados com `bcrypt` no banco de dados SQLite local, com proteção contra força bruta (*rate-limiting*):
 
-1. **PIN do Diretor (Padrão inicial: `1234`):**
+Na primeira abertura, escolha um nome para o evento e defina os dois PINs. Cada instalação cria seu próprio banco local; a programação-modelo é carregada automaticamente e os PINs não fazem parte dos backups.
+
+1. **PIN do Diretor:**
    - Permite visualizar a programação e o item atual.
    - Permite marcar mídias como concluídas ou reabri-las.
    - Permite avançar e retroceder os itens em execução.
    - Bloqueia alterações estruturais (criar/excluir itens, editar evento).
 
-2. **PIN de Administrador / Edição (Padrão inicial: `9999`):**
+2. **PIN de Administrador / Edição:**
    - Libera o **Modo Edição**.
    - Criar, editar, excluir e reordenar itens e mídias.
    - Gerenciar Dias, Turnos e dados gerais do evento.
    - Alterar os PINs de acesso (ao trocar um PIN, as demais sessões abertas são encerradas).
+
+---
+
+## 🎬 Como o app funciona
+
+O EventosAPP organiza a operação de um evento em uma sequência simples: **evento → dias → turnos → partes → mídias**. Todos os dispositivos conectados à mesma rede veem as alterações em tempo real.
+
+1. **Configure o evento.** Na primeira abertura, informe o nome do evento e os PINs. O aplicativo cria o banco local e carrega uma programação-modelo com partes, mídias e planos de câmera.
+2. **Entre no modo adequado.** Use o PIN do Diretor para operar a programação ao vivo; use o PIN de Administrador para abrir o Modo Edição e preparar a estrutura.
+3. **Prepare a programação.** No Modo Edição, crie ou ajuste dias, turnos, partes e mídias. É possível reordenar conteúdos, importar playlists/backup do JW Library, configurar planos de câmera e adicionar passos da Sentinela, inclusive fotos de participantes.
+4. **Opere ao vivo.** No Modo Diretor, escolha a parte atual, avance ou volte pela programação e marque mídias concluídas. As ações são sincronizadas com os demais dispositivos conectados.
+5. **Conecte a equipe.** Abra o endereço de rede exibido pelo servidor, ou use o QR Code do app, em celulares e tablets na mesma Wi-Fi/LAN.
+6. **Faça backup.** Nas configurações, baixe o backup JSON antes ou depois do evento. A restauração substitui a programação, mas preserva os PINs da instalação atual.
 
 ---
 

@@ -1044,7 +1044,6 @@ const Modals = {
   // btn: the restore button; first tap arms it (UIDirector.confirmDelete), second tap restores
   restoreEventBackup(btn) {
     const fileInput = document.getElementById('backup-file-input');
-    const keepPinsCheckbox = document.getElementById('backup-keep-pins');
     const file = fileInput ? fileInput.files[0] : null;
 
     if (!file) {
@@ -1053,7 +1052,6 @@ const Modals = {
     }
 
     UIDirector.confirmDelete(btn, async () => {
-      const keepPins = keepPinsCheckbox ? keepPinsCheckbox.checked : true;
       const text = await file.text().catch(() => { throw new Error('Erro ao ler o arquivo de backup.'); });
       let backupData;
       try {
@@ -1062,7 +1060,7 @@ const Modals = {
         throw new Error('O arquivo selecionado não é um JSON válido.');
       }
       try {
-        await Api.restoreBackup(backupData, keepPins);
+        await Api.restoreBackup(backupData);
       } catch (err) {
         throw new Error('Falha na restauração: ' + err.message);
       }

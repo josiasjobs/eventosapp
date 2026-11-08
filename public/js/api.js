@@ -286,10 +286,10 @@ const Api = {
     window.URL.revokeObjectURL(url);
   },
 
-  async restoreBackup(backupData, keepPins = true) {
+  async restoreBackup(backupData) {
     return this.request('/api/backup/restore', {
       method: 'POST',
-      body: JSON.stringify({ backupData, keepPins })
+      body: JSON.stringify({ backupData })
     });
   }
 };

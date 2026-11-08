@@ -176,3 +176,37 @@ test('restauração: sigla desconhecida fica sem plano; backup antigo sem planos
   const restored = queries.getFullShiftData(newShift.id).items.find(i => i.title === 'ComPlano');
   assert.equal(restored.plan_in, null);
 });
+
+test('modelo inicial importa a programação completa sem credenciais', () => {
+  const templatePath = path.join(__dirname, '..', 'seed', 'default-event.json');
+  const template = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
+  assert.equal('event' in template, false);
+  assert.equal('director_pin_hash' in template, false);
+  assert.equal('admin_pin_hash' in template, false);
+
+  const seededEventId = queries.createEvent('Evento configurado', '', 'hash-diretor-da-configuracao', 'hash-admin-da-configuracao');
+  queries.populateEventFromTemplate(seededEventId, template);
+
+  const days = queries.getDaysByEvent(seededEventId);
+  const shifts = days.flatMap(day => queries.getShiftsByDay(day.id));
+  const items = shifts.flatMap(shift => queries.getItemsByShift(shift.id));
+  const medias = items.flatMap(item => queries.getMediasByItem(item.id));
+  assert.deepEqual([days.length, shifts.length, items.length, medias.length], [1, 1, 5, 8]);
+  assert.equal(medias.filter(media => media.photo).length, 3);
+  assert.equal(queries.listCameraPlans().length >= 2, true);
+});
+
+test('backup não exporta nem restaura hashes de PIN', () => {
+  const before = queries.getActiveEvent();
+  const backup = queries.getFullEventBackup();
+  assert.equal('director_pin_hash' in backup.event, false);
+  assert.equal('admin_pin_hash' in backup.event, false);
+
+  backup.event.director_pin_hash = 'hash-malicioso-diretor';
+  backup.event.admin_pin_hash = 'hash-malicioso-admin';
+  queries.restoreEventBackup(backup);
+
+  const restored = queries.getActiveEvent();
+  assert.equal(restored.director_pin_hash, before.director_pin_hash);
+  assert.equal(restored.admin_pin_hash, before.admin_pin_hash);
+});

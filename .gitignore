@@ -1,5 +1,6 @@
 node_modules/
 .env
+data/eventos.db
 .DS_Store
 .tmp
 *.log

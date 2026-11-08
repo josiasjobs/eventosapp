@@ -381,11 +381,7 @@
           <div class="form-group settings-restore">
             <label class="form-label" for="backup-file-input">Restaurar a partir de um arquivo .json</label>
             <input type="file" class="form-input" id="backup-file-input" accept=".json,application/json">
-            <label class="check-line" for="backup-keep-pins">
-              <input type="checkbox" id="backup-keep-pins" checked>
-              <span>Manter os PINs atuais</span>
-            </label>
-            <span class="form-hint">Os dados atuais do evento serão sobrescritos.</span>
+            <span class="form-hint">Os dados atuais do evento serão sobrescritos. Os PINs atuais serão mantidos.</span>
             <button type="button" class="btn btn-secondary settings-block-btn" id="btn-restore-backup"
               onclick="Modals.restoreEventBackup(this)">
               <span data-icon="upload"></span><span>Restaurar (toque duas vezes)</span>

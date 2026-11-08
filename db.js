@@ -492,9 +492,7 @@ const queries = {
       exportedAt: new Date().toISOString(),
       event: {
         name: event.name,
-        category: event.category || '',
-        director_pin_hash: event.director_pin_hash,
-        admin_pin_hash: event.admin_pin_hash
+        category: event.category || ''
       },
       camera_plans: [],
       days: []
@@ -572,7 +570,86 @@ const queries = {
     return backupData;
   },
 
-  restoreEventBackup(backupData, keepCurrentPins = false) {
+  populateEventFromTemplate(eventId, template) {
+    // Plans: use the local catalog when the sigla exists, create what is missing, never update
+    const templatePlans = Array.isArray(template.camera_plans) ? template.camera_plans : [];
+    for (const plan of templatePlans) {
+      if (!plan || checkCameraPlan(plan) !== null) continue;
+      if (!this.getCameraPlanBySigla(plan.sigla)) this.createCameraPlan(plan);
+    }
+
+    let firstDayId = null;
+    let firstShiftId = null;
+    let firstItemId = null;
+    const days = Array.isArray(template.days) ? template.days : [];
+    for (const day of days) {
+      const dayRes = db.prepare(`
+        INSERT INTO days (event_id, date, label, order_num)
+        VALUES (?, ?, ?, ?)
+      `).run(eventId, day.date || '', day.label || '', day.order_num || 1);
+      const newDayId = Number(dayRes.lastInsertRowid);
+      firstDayId ??= newDayId;
+
+      const shifts = Array.isArray(day.shifts) ? day.shifts : [];
+      for (const shift of shifts) {
+        const shiftRes = db.prepare(`
+          INSERT INTO shifts (day_id, name, start_time, end_time, order_num)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(newDayId, shift.name || '', shift.start_time || '', shift.end_time || '', shift.order_num || 1);
+        const newShiftId = Number(shiftRes.lastInsertRowid);
+        firstShiftId ??= newShiftId;
+
+        const items = Array.isArray(shift.items) ? shift.items : [];
+        for (const item of items) {
+          const itemRes = db.prepare(`
+            INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, completed, talk_number,
+                               cam_left, cam_right, cam_speaker, plan_in_id, plan_out_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            newShiftId,
+            item.title || '',
+            item.scheduled_time || '',
+            item.description || '',
+            item.speaker || '',
+            item.activity_type || '',
+            item.order_num || 1,
+            item.completed ? 1 : 0,
+            item.talk_number ?? null,
+            item.cam_left ?? null,
+            item.cam_right ?? null,
+            item.cam_speaker ?? null,
+            this.getCameraPlanBySigla(item.plan_in)?.id ?? null,
+            this.getCameraPlanBySigla(item.plan_out)?.id ?? null
+          );
+          const newItemId = Number(itemRes.lastInsertRowid);
+          firstItemId ??= newItemId;
+
+          const medias = Array.isArray(item.medias) ? item.medias : [];
+          for (const media of medias) {
+            db.prepare(`
+              INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person, photo)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              newItemId,
+              media.title || '',
+              media.type || 'other',
+              media.reference || '',
+              media.order_num || 1,
+              media.completed ? 1 : 0,
+              media.paragraph ?? null,
+              media.side || '',
+              media.person || '',
+              media.photo || ''
+            );
+          }
+        }
+      }
+    }
+
+    return { firstDayId, firstShiftId, firstItemId };
+  },
+
+  restoreEventBackup(backupData) {
     if (!backupData || !backupData.event || !backupData.event.name) {
       throw new Error('Arquivo de backup inválido: dados do evento não encontrados.');
     }
@@ -580,22 +657,7 @@ const queries = {
     db.exec('BEGIN TRANSACTION;');
     try {
       const activeEvent = this.getActiveEvent();
-      let directorPinHash = backupData.event.director_pin_hash;
-      let adminPinHash = backupData.event.admin_pin_hash;
-
-      if (keepCurrentPins && activeEvent) {
-        directorPinHash = activeEvent.director_pin_hash;
-        adminPinHash = activeEvent.admin_pin_hash;
-      }
-
-      if (!directorPinHash || !adminPinHash) {
-        if (activeEvent) {
-          directorPinHash = activeEvent.director_pin_hash;
-          adminPinHash = activeEvent.admin_pin_hash;
-        } else {
-          throw new Error('O backup não contém hashes de PIN válidos.');
-        }
-      }
+      if (!activeEvent) throw new Error('Nenhum evento ativo para preservar os PINs.');
 
       // Desativa eventos anteriores
       db.prepare('UPDATE events SET is_active = 0').run();
@@ -607,79 +669,11 @@ const queries = {
       `).run(
         backupData.event.name.trim(),
         (backupData.event.category || '').trim(),
-        directorPinHash,
-        adminPinHash
+        activeEvent.director_pin_hash,
+        activeEvent.admin_pin_hash
       );
       const newEventId = eventRes.lastInsertRowid;
-
-      // Plans: use the local catalog when the sigla exists, create what is missing, never update
-      const backupPlans = Array.isArray(backupData.camera_plans) ? backupData.camera_plans : [];
-      for (const plan of backupPlans) {
-        if (!plan || checkCameraPlan(plan) !== null) continue;
-        if (!this.getCameraPlanBySigla(plan.sigla)) this.createCameraPlan(plan);
-      }
-
-      const days = Array.isArray(backupData.days) ? backupData.days : [];
-      for (const day of days) {
-        const dayRes = db.prepare(`
-          INSERT INTO days (event_id, date, label, order_num)
-          VALUES (?, ?, ?, ?)
-        `).run(newEventId, day.date || '', day.label || '', day.order_num || 1);
-        const newDayId = dayRes.lastInsertRowid;
-
-        const shifts = Array.isArray(day.shifts) ? day.shifts : [];
-        for (const shift of shifts) {
-          const shiftRes = db.prepare(`
-            INSERT INTO shifts (day_id, name, start_time, end_time, order_num)
-            VALUES (?, ?, ?, ?, ?)
-          `).run(newDayId, shift.name || '', shift.start_time || '', shift.end_time || '', shift.order_num || 1);
-          const newShiftId = shiftRes.lastInsertRowid;
-
-          const items = Array.isArray(shift.items) ? shift.items : [];
-          for (const item of items) {
-            const itemRes = db.prepare(`
-              INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, completed, talk_number,
-                                 cam_left, cam_right, cam_speaker, plan_in_id, plan_out_id)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(
-              newShiftId,
-              item.title || '',
-              item.scheduled_time || '',
-              item.description || '',
-              item.speaker || '',
-              item.activity_type || '',
-              item.order_num || 1,
-              item.completed ? 1 : 0,
-              item.talk_number ?? null,
-              item.cam_left ?? null,
-              item.cam_right ?? null,
-              item.cam_speaker ?? null,
-              this.getCameraPlanBySigla(item.plan_in)?.id ?? null,
-              this.getCameraPlanBySigla(item.plan_out)?.id ?? null
-            );
-            const newItemId = itemRes.lastInsertRowid;
-
-            const medias = Array.isArray(item.medias) ? item.medias : [];
-            for (const media of medias) {
-              db.prepare(`
-                INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person, photo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `).run(
-                newItemId,
-                media.title || '',
-                media.type || 'other',
-                media.reference || '',
-                media.order_num || 1,
-                media.completed ? 1 : 0,
-                media.paragraph ?? null,
-                media.side || '',
-                media.person || '',
-                media.photo || ''
-              );
-            }
-          }
-        }
-      }
+      this.populateEventFromTemplate(Number(newEventId), backupData);
 
       db.exec('COMMIT;');
       return { success: true, eventId: newEventId };
