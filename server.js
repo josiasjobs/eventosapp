@@ -235,7 +235,7 @@ app.get('/api/status', (req, res) => {
 });
 
 // 3. First Setup (RF-01)
-app.post('/api/setup', async (req, res) => {
+async function setupHandler(req, res) {
   try {
     const existing = queries.getActiveEvent();
     if (existing) {
@@ -281,7 +281,8 @@ app.post('/api/setup', async (req, res) => {
     console.error('Setup error:', err);
     res.status(500).json({ error: 'Erro ao configurar evento inicial: ' + err.message });
   }
-});
+}
+app.post('/api/setup', setupHandler);
 
 // 4. Auth - Login by PIN (RF-02)
 app.post('/api/auth/login', async (req, res) => {
@@ -956,7 +957,7 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: message });
 });
 
-module.exports = { app, server };
+module.exports = { app, server, setupHandler };
 
 // Start Server (only when run directly, so tests can require this file)
 if (require.main === module) server.listen(PORT, '0.0.0.0', () => {
