@@ -41,7 +41,7 @@ npm start
 
 ## 🔐 Autenticação e Níveis de PIN
 
-O sistema utiliza PINs numéricos de 4 a 8 dígitos criptografados com `bcrypt` no banco de dados SQLite local, com proteção contra força bruta (*rate-limiting*):
+O sistema utiliza PINs numéricos de 4 dígitos criptografados com `bcrypt` no banco de dados SQLite local, com proteção contra força bruta (*rate-limiting*):
 
 1. **PIN do Diretor (Padrão inicial: `1234`):**
    - Permite visualizar a programação e o item atual.
