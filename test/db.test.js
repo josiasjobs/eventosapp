@@ -153,6 +153,15 @@ test('backup leva os planos usados; restauração usa o local e cria o que falta
   assert.equal(queries.getCameraPlanBySigla('SD').camera, 3);
 });
 
+test('sessão vencida não é aceita, mesmo vencida no mesmo dia', () => {
+  const twoHoursAgo = new Date(Date.now() - 2 * 3600e3).toISOString();
+  queries.createSession('vencida', 'admin', '', twoHoursAgo);
+  assert.equal(queries.getSession('vencida'), undefined);
+  const inOneHour = new Date(Date.now() + 3600e3).toISOString();
+  queries.createSession('valida', 'admin', '', inOneHour);
+  assert.ok(queries.getSession('valida'));
+});
+
 test('restauração: sigla desconhecida fica sem plano; backup antigo sem planos restaura', () => {
   const shift = queries.getShiftsByDay(queries.getDaysByEvent(queries.getActiveEvent().id)[0].id)[0];
   const known = queries.createCameraPlan({ sigla: 'KN', name: 'Conhecido', camera: 2, preset: 2 });

@@ -442,7 +442,8 @@ const queries = {
   },
 
   getSession(token) {
-    return db.prepare("SELECT * FROM sessions WHERE token = ? AND expires_at > datetime('now', 'localtime')").get(token);
+    // expires_at is an ISO string in UTC: compare as dates, not as text against local time
+    return db.prepare("SELECT * FROM sessions WHERE token = ? AND datetime(expires_at) > datetime('now')").get(token);
   },
 
   deleteSession(token) {
@@ -450,7 +451,12 @@ const queries = {
   },
 
   cleanExpiredSessions() {
-    return db.prepare("DELETE FROM sessions WHERE expires_at <= datetime('now', 'localtime')").run();
+    return db.prepare("DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now')").run();
+  },
+
+  // Ends every session but the given one (used when the PINs change)
+  deleteSessionsExcept(token) {
+    return db.prepare('DELETE FROM sessions WHERE token IS NOT ?').run(token ?? null);
   },
 
   // Full tree getter for a shift (items with their medias)
