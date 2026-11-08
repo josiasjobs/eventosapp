@@ -88,6 +88,12 @@ function checkStep(mediaType, fields, parentItem) {
   return { step: { paragraph, side: '', person: '', photo: '' }, title: (raw) => String(raw).trim() };
 }
 
+// True when every id in the list is one of the given rows (items of a shift, medias of an item)
+function belongsTo(ids, rows) {
+  const own = new Set(rows.map(r => r.id));
+  return ids.every(id => own.has(Number(id)));
+}
+
 const SENTINELA_NEEDS_TALK = 'A Sentinela precisa do número do discurso.';
 const SENTINELA_ONE_PER_SHIFT = 'Este turno já tem uma Sentinela.';
 const MEDIA_TYPES = ['bible', 'image', 'video', 'interview', 'theater', 'question', 'other'];
@@ -170,6 +176,7 @@ const pingInterval = setInterval(() => {
     ws.ping();
   });
 }, 30000);
+pingInterval.unref();
 
 wss.on('close', () => {
   clearInterval(pingInterval);
@@ -415,10 +422,10 @@ app.get('/api/events/active', authenticate(), (req, res) => {
 // 9. Update Event Information (Admin only)
 app.put('/api/events/:id', authenticate('admin'), (req, res) => {
   const { name, category } = req.body;
-  if (!name || !name.trim()) {
+  if (typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'O nome do evento não pode ser vazio.' });
   }
-  queries.updateEvent(req.params.id, name.trim(), category ? category.trim() : '');
+  queries.updateEvent(req.params.id, name.trim(), typeof category === 'string' ? category.trim() : '');
   broadcast('EVENT_UPDATED', { eventId: req.params.id, name: name.trim() });
   res.json({ success: true });
 });
@@ -440,6 +447,8 @@ app.put('/api/events/:id/pins', authenticate('admin'), async (req, res) => {
     }
 
     queries.updateEventPins(req.params.id, dirHash, admHash);
+    // Whoever logged in with an old PIN must log in again; the admin who changed it stays
+    if (dirHash || admHash) queries.deleteSessionsExcept(req.user.token);
     res.json({ success: true, message: 'PINs atualizados com sucesso.' });
   } catch (e) {
     res.status(500).json({ error: 'Erro ao atualizar PINs: ' + e.message });
@@ -475,6 +484,9 @@ app.post('/api/backup/restore', authenticate('admin'), (req, res) => {
     if (!backupData || !backupData.event) {
       return res.status(400).json({ error: 'Dados do backup inválidos ou não informados.' });
     }
+    if (!Array.isArray(backupData.days) || backupData.days.length === 0) {
+      return res.status(400).json({ error: 'O backup não tem nenhum dia cadastrado.' });
+    }
 
     const result = queries.restoreEventBackup(backupData, keepPins !== false);
 
@@ -492,7 +504,9 @@ app.post('/api/backup/restore', authenticate('admin'), (req, res) => {
 // 11. Days Management (Admin only)
 app.post('/api/days', authenticate('admin'), (req, res) => {
   const { eventId, date, label } = req.body;
-  if (!label || !date) return res.status(400).json({ error: 'Data e Rótulo são obrigatórios.' });
+  if (typeof label !== 'string' || !label.trim() || !date) return res.status(400).json({ error: 'Data e Rótulo são obrigatórios.' });
+  const event = queries.getActiveEvent();
+  if (!event || Number(eventId) !== Number(event.id)) return res.status(404).json({ error: 'Evento não encontrado' });
 
   const currentDays = queries.getDaysByEvent(eventId);
   const nextOrder = currentDays.length + 1;
@@ -533,14 +547,15 @@ app.delete('/api/days/:id', authenticate('admin'), (req, res) => {
 // 12. Shifts Management (Admin only)
 app.post('/api/shifts', authenticate('admin'), (req, res) => {
   const { dayId, name, startTime, endTime } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Nome do turno é obrigatório.' });
+  if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'Nome do turno é obrigatório.' });
+  const day = queries.getDay(dayId);
+  if (!day) return res.status(404).json({ error: 'Dia não encontrado' });
 
   const currentShifts = queries.getShiftsByDay(dayId);
   const nextOrder = currentShifts.length + 1;
   const shiftId = queries.createShift(dayId, name.trim(), startTime || '', endTime || '', nextOrder);
 
-  const day = queries.getDay(dayId);
-  broadcast('EVENT_UPDATED', { eventId: day ? day.event_id : null });
+  broadcast('EVENT_UPDATED', { eventId: day.event_id });
   res.json({ success: true, shiftId });
 });
 
@@ -587,6 +602,7 @@ app.post('/api/shifts/:id/current-item', authenticate(), (req, res) => {
   if (currentItemId) {
     item = queries.getItem(currentItemId);
     if (!item) return res.status(404).json({ error: 'Item não encontrado' });
+    if (item.shift_id !== shift.id) return res.status(400).json({ error: 'Este item não pertence ao turno.' });
   }
 
   queries.setShiftCurrentItem(shift.id, currentItemId ? Number(currentItemId) : null);
@@ -678,6 +694,10 @@ app.post('/api/items', authenticate('admin'), (req, res) => {
 app.put('/api/items/reorder', authenticate('admin'), (req, res) => {
   const { shiftId, orderedIds } = req.body;
   if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
+  if (!queries.getShift(shiftId)) return res.status(404).json({ error: 'Turno não encontrado' });
+  if (!belongsTo(orderedIds, queries.getItemsByShift(shiftId))) {
+    return res.status(400).json({ error: 'A lista tem partes que não são deste turno.' });
+  }
 
   orderedIds.forEach((id, index) => {
     queries.updateItemOrder(id, index + 1);
@@ -764,6 +784,7 @@ app.post('/api/medias', authenticate('admin'), (req, res) => {
   if (mediaType !== 'question' && (!title || !title.trim())) return res.status(400).json({ error: 'Título da mídia é obrigatório.' });
 
   const parentItem = queries.getItem(itemId);
+  if (!parentItem) return res.status(404).json({ error: 'Item não encontrado' });
   const stepCheck = checkStep(mediaType, req.body, parentItem);
   if (stepCheck.error) return res.status(400).json({ error: stepCheck.error });
 
@@ -775,14 +796,17 @@ app.post('/api/medias', authenticate('admin'), (req, res) => {
     ? queries.createMediaAfter(itemId, afterId, stepCheck.title(title), mediaType, reference ? reference.trim() : '', stepCheck.step)
     : queries.createMedia(itemId, stepCheck.title(title), mediaType, reference ? reference.trim() : '', nextOrder, stepCheck.step);
 
-  const item = parentItem;
-  broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId });
+  broadcast('PROGRAM_UPDATED', { shiftId: parentItem.shift_id, itemId });
   res.json({ success: true, mediaId });
 });
 
 app.put('/api/medias/reorder', authenticate('admin'), (req, res) => {
   const { itemId, orderedIds } = req.body;
   if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds deve ser um array de IDs.' });
+  if (!queries.getItem(itemId)) return res.status(404).json({ error: 'Item não encontrado' });
+  if (!belongsTo(orderedIds, queries.getMediasByItem(itemId))) {
+    return res.status(400).json({ error: 'A lista tem mídias que não são desta parte.' });
+  }
 
   orderedIds.forEach((id, index) => {
     queries.updateMediaOrder(id, index + 1);
@@ -866,6 +890,11 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
   console.log('[IMPORT] Requisicao: itemId', itemId, 'arquivo', file?.originalname);
 
   if (!file) return res.status(400).json({ error: 'Arquivo .jwlplaylist nao fornecido' });
+  const item = queries.getItem(itemId);
+  if (!item) {
+    try { await fs.promises.unlink(file.path); } catch (_) {}
+    return res.status(404).json({ error: 'Item não encontrado' });
+  }
 
   const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'jwlplaylist-'));
   try {
@@ -879,8 +908,7 @@ app.post('/api/items/:itemId/import-playlist', authenticate('admin'), upload.sin
     if (medias.length === 0) return res.status(400).json({ error: 'Nenhuma playlist com itens neste arquivo.' });
     queries.importMedias(Number(itemId), medias, replace);
 
-    const item = queries.getItem(itemId);
-    broadcast('PROGRAM_UPDATED', { shiftId: item ? item.shift_id : null, itemId: Number(itemId) });
+    broadcast('PROGRAM_UPDATED', { shiftId: item.shift_id, itemId: Number(itemId) });
     return res.json({ success: true, importedCount: medias.length });
 
   } catch (err) {
@@ -936,8 +964,22 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start Server
-server.listen(PORT, '0.0.0.0', () => {
+// Errors answer in JSON, like every other API response, and never expose the stack
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  if (status >= 500) console.error('[ERRO]', req.method, req.originalUrl, err);
+  const message = status === 400 && err.type === 'entity.parse.failed' ? 'Dados enviados em formato inválido.'
+    : status === 413 ? 'Os dados enviados são grandes demais.'
+    : status < 500 ? (err.message || 'Requisição inválida.')
+    : 'Erro interno do servidor.';
+  if (res.headersSent) return next(err);
+  res.status(status).json({ error: message });
+});
+
+module.exports = { app, server };
+
+// Start Server (only when run directly, so tests can require this file)
+if (require.main === module) server.listen(PORT, '0.0.0.0', () => {
   const lanIps = getLanIps();
   console.log(`\n======================================================`);
   console.log(`  🚀 EventosAPP v1.0 (MVP) - Servidor Local Ativo`);

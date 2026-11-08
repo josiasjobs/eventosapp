@@ -14,9 +14,9 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "express": "^5.3.0",
+    "multer": "^2.5.0",
     "qrcode": "^1.5.4",
-    "ws": "^8.22.0",
-    "multer": "^1.4.5-lts.1",
-    "unzipper": "^0.10.11"
+    "unzipper": "^0.10.11",
+    "ws": "^8.22.0"
   }
 }
