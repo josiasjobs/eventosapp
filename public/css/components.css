@@ -96,6 +96,12 @@
 .check-label input { width: 22px; height: 22px; accent-color: var(--accent); }
 .talk-number { width: 7em; }
 .cam-group { flex-direction: row; gap: 12px; }
+.framing-group { border: 0; padding: 0; margin-inline: 0; min-width: 0; }
+.framing-group > legend { padding: 0; margin-bottom: 6px; }
+.framing-row { display: flex; flex-direction: row; gap: 12px; }
+.framing-defaults { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border, rgba(127,127,127,.25)); display: flex; flex-direction: column; gap: 10px; }
+.framing-defaults-title { margin: 0; font-size: 0.95rem; }
+.framing-defaults .form-hint { margin: 0; }
 .cam-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .check-label[hidden], .cam-group[hidden], .media-paragraph-group[hidden] { display: none; }
 .side-picker { display: flex; gap: 8px; }

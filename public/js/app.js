@@ -109,7 +109,9 @@ async function loadEventHierarchy() {
 // Fetch the camera plan catalog
 async function loadCameraPlans() {
   try {
-    AppState.setCameraPlans(await Api.getCameraPlans());
+    const [plans, framing] = await Promise.all([Api.getCameraPlans(), Api.getFramingDefaults()]);
+    AppState.setFramingDefaults(framing);
+    AppState.setCameraPlans(plans);
   } catch (err) {
     console.error('Error loading camera plans:', err);
   }

@@ -180,6 +180,15 @@ const Api = {
     return this.request(`/api/camera-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   },
 
+  // Default framing CAM per role: { speaker, president }
+  async getFramingDefaults() {
+    return this.request('/api/framing-defaults');
+  },
+
+  async setFramingDefaults(data) {
+    return this.request('/api/framing-defaults', { method: 'PUT', body: JSON.stringify(data) });
+  },
+
   async deleteCameraPlan(id) {
     return this.request(`/api/camera-plans/${id}`, { method: 'DELETE' });
   },

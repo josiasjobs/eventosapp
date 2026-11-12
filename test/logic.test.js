@@ -306,3 +306,20 @@ test('planSiglas mostra a transição da parte', () => {
   assert.equal(L.planSiglas({ plan_in: null, plan_out: pa }), '→ PA');
   assert.equal(L.planSiglas({}), '');
 });
+
+test('framingLabel monta CAM e preset do enquadramento', () => {
+  assert.equal(L.framingLabel({ cam_speaker: 2, preset_speaker: 4 }), 'CAM 2 · P4');
+  assert.equal(L.framingLabel({ cam_speaker: 2, preset_speaker: null }), 'CAM 2');
+  assert.equal(L.framingLabel({ cam_speaker: null, preset_speaker: 4 }), 'P4');
+  assert.equal(L.framingLabel({}), '');
+  assert.equal(L.framingLabel(null), '');
+});
+
+test('framingDefaultCam usa a CAM do presidente só para presidente', () => {
+  const d = { speaker: 2, president: 1 };
+  assert.equal(L.framingDefaultCam('presidente', d), 1);
+  assert.equal(L.framingDefaultCam('', d), 2);
+  assert.equal(L.framingDefaultCam('sentinela', d), 2);
+  assert.equal(L.framingDefaultCam('', { speaker: null }), null);
+  assert.equal(L.framingDefaultCam('presidente', null), null);
+});

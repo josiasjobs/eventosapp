@@ -122,3 +122,17 @@ test('restaurar backup sem dias é recusado e mantém o evento atual', async () 
   assert.equal(r.status, 400);
   assert.equal(queries.getActiveEvent().id, before);
 });
+
+test('rota /api desconhecida responde 404 em JSON, não a página', async () => {
+  const r = await api('PUT', '/api/rota-que-nao-existe', { body: {} });
+  assert.equal(r.status, 404);
+});
+
+test('CAM padrão do enquadramento: admin salva e qualquer sessão lê', async () => {
+  const put = await api('PUT', '/api/framing-defaults', { body: { speaker: '3', president: '1' } });
+  assert.equal(put.status, 200);
+  const get = await api('GET', '/api/framing-defaults');
+  assert.deepEqual(get.json, { speaker: 3, president: 1 });
+  const bad = await api('PUT', '/api/framing-defaults', { body: { speaker: '0' } });
+  assert.equal(bad.status, 400);
+});

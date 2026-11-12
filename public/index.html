@@ -184,19 +184,29 @@
               <label class="form-label" for="item-cam-right">Câm. direita</label>
               <input type="number" class="form-input" id="item-cam-right" name="itemCamRight" min="1" step="1" inputmode="numeric">
             </div>
-            <div class="cam-field">
-              <label class="form-label" for="item-cam-speaker">Câm. orador</label>
-              <input type="number" class="form-input" id="item-cam-speaker" name="itemCamSpeaker" min="1" step="1" inputmode="numeric">
-            </div>
           </div>
           <div class="form-group">
             <label class="form-label" for="item-time">Horário</label>
             <input type="time" class="form-input" id="item-time" name="itemScheduledTime" required>
           </div>
           <div class="form-group">
-            <label class="form-label" for="item-speaker">Orador</label>
+            <label class="form-label" for="item-speaker" id="item-speaker-label">Orador</label>
             <input type="text" class="form-input" id="item-speaker" name="itemSpeaker" autocomplete="off">
           </div>
+          <!-- Enquadramento do orador: CAM vem da CAM padrão (modal de planos), editável -->
+          <fieldset class="form-group framing-group">
+            <legend class="form-label">Enquadramento</legend>
+            <div class="framing-row">
+              <div class="cam-field">
+                <label class="form-label" for="item-cam-speaker">CAM</label>
+                <input type="number" class="form-input" id="item-cam-speaker" name="itemCamSpeaker" min="1" step="1" inputmode="numeric">
+              </div>
+              <div class="cam-field">
+                <label class="form-label" for="item-preset-speaker">PRESET</label>
+                <input type="number" class="form-input" id="item-preset-speaker" name="itemPresetSpeaker" min="1" step="1" inputmode="numeric">
+              </div>
+            </div>
+          </fieldset>
           <div class="form-group">
             <label class="form-label" for="item-plan-in">Plano de entrada</label>
             <select class="form-input" id="item-plan-in" name="itemPlanIn"></select>
@@ -503,6 +513,21 @@
       <div class="modal-body">
         <div class="plan-list" id="camera-plans-list"></div>
         <button type="button" class="btn btn-secondary settings-block-btn" id="camera-plans-new">+ Novo plano</button>
+        <!-- CAM que já vem preenchida no Enquadramento das partes novas -->
+        <form class="framing-defaults" id="framing-defaults-form">
+          <h3 class="framing-defaults-title">Enquadramento padrão</h3>
+          <p class="form-hint">CAM que já vem preenchida no enquadramento ao criar uma parte (pode ser alterada no formulário).</p>
+          <div class="framing-row">
+            <div class="cam-field">
+              <label class="form-label" for="framing-default-speaker">Orador · CAM</label>
+              <input type="number" class="form-input" id="framing-default-speaker" name="speaker" min="1" step="1" inputmode="numeric">
+            </div>
+            <div class="cam-field">
+              <label class="form-label" for="framing-default-president">Presidente · CAM</label>
+              <input type="number" class="form-input" id="framing-default-president" name="president" min="1" step="1" inputmode="numeric">
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   </div>

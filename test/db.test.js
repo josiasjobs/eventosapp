@@ -210,3 +210,26 @@ test('backup não exporta nem restaura hashes de PIN', () => {
   assert.equal(restored.director_pin_hash, before.director_pin_hash);
   assert.equal(restored.admin_pin_hash, before.admin_pin_hash);
 });
+
+test('enquadramento: preset do orador é salvo, atualizado e vai no backup', () => {
+  const event = queries.getActiveEvent();
+  const shift = queries.getShiftsByDay(queries.getDaysByEvent(event.id)[0].id)[0].id;
+  const itemId = queries.createItem(shift, 'Enquadrada', '10:00', '', 'João', '', 90, null, { speaker: 2, preset: 5 });
+  assert.deepEqual([queries.getItem(itemId).cam_speaker, queries.getItem(itemId).preset_speaker], [2, 5]);
+  queries.updateItem(itemId, 'Enquadrada', '10:00', '', 'João', '', null, { speaker: 3, preset: 7 });
+  assert.deepEqual([queries.getItem(itemId).cam_speaker, queries.getItem(itemId).preset_speaker], [3, 7]);
+  const backup = queries.getFullEventBackup();
+  const saved = backup.days[0].shifts[0].items.find(i => i.title === 'Enquadrada');
+  assert.equal(saved.preset_speaker, 7);
+  queries.restoreEventBackup(backup);
+  const restored = queries.getFullEventBackup().days[0].shifts[0].items.find(i => i.title === 'Enquadrada');
+  assert.deepEqual([restored.cam_speaker, restored.preset_speaker], [3, 7]);
+});
+
+test('CAM padrão do enquadramento por papel', () => {
+  assert.deepEqual(queries.getFramingDefaults(), { speaker: null, president: null });
+  queries.setFramingDefaults({ speaker: 2, president: 1 });
+  assert.deepEqual(queries.getFramingDefaults(), { speaker: 2, president: 1 });
+  queries.setFramingDefaults({ speaker: null, president: 4 });
+  assert.deepEqual(queries.getFramingDefaults(), { speaker: null, president: 4 });
+});

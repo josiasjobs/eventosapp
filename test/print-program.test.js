@@ -154,7 +154,7 @@ test('Sentinela: tabela com ESQUERDA | DIREITA no cabeçalho (repete em cada pá
   assert.match(html, /tr \{ break-inside: avoid/);
   assert.match(html, /Somente Sentinela|class="chip chip-accent">Sentinela/);
   assert.match(html, /Nº 3/);
-  assert.match(html, /Orador CAM 2/);
+  assert.match(html, /class="speaker framing">[\s\S]*?CAM 2</);
 });
 
 test('Sentinela: pessoas no lado delas, câmera no oposto, ☐ só nas mídias', () => {

@@ -225,6 +225,19 @@ button.dot.dot-lg::before { inset: -12px; }
   font-size: var(--fs-small);
 }
 .meta-item { display: inline-flex; align-items: center; gap: 6px; }
+.current-meta { align-items: center; }
+/* Enquadramento do orador: na ponta direita da linha, maior e em destaque */
+.meta-framing {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid var(--framing);
+  border-radius: var(--radius);
+  color: var(--framing);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
 
 .current-notes {
   color: var(--text-2);
@@ -281,6 +294,9 @@ button.dot.dot-lg::before { inset: -12px; }
 }
 .sent-cols span { padding: 8px; }
 .sent-cols span + span { border-left: 1px solid var(--border); }
+
+/* Room for the sticky header's 24px cover shadow, so it never cuts the line above (enquadramento) */
+.media-list.sent-list { margin-top: 24px; }
 
 .sent-cards { display: flex; flex-direction: column; gap: 6px; }
 

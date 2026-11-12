@@ -92,6 +92,8 @@ const UIDirector = {
     const sentinela = this.isSentinelaWithSteps(currentItem);
     const stepId = sentinela ? AppState.getStepId(currentItem) : null;
     let mediasHtml;
+    // Sentinela cards start with the ESQUERDA | DIREITA header; the entry plan goes right below it
+    const sentinelaCards = sentinela && AppState.mode !== 'editor';
     if (sentinela) {
       mediasHtml = AppState.mode === 'editor'
         ? this.sentinelaEditListHtml(currentItem, stepId)
@@ -101,8 +103,10 @@ const UIDirector = {
         ? this.emptyStateHtml('file', currentItem.activity_type === 'sentinela' ? 'Sem passos' : 'Sem mídias')
         : medias.map(media => this.mediaRowHtml(media)).join('');
     }
-    const speakerCam = sentinela && this.hasCam(currentItem.cam_speaker)
-      ? `<span class="meta-item">${icon('video', 16)}<span>Orador CAM ${uiEsc(currentItem.cam_speaker)}</span></span>`
+    // Speaker framing (enquadramento): CAM/preset of whoever is on stage, any kind of part
+    const framing = Logic.framingLabel(currentItem);
+    const speakerCam = framing
+      ? `<span class="meta-item meta-framing" title="Enquadramento">${icon('video', 20)}<span>${uiEsc(framing)}</span></span>`
       : '';
 
     spotlightContainer.innerHTML = `
@@ -123,7 +127,7 @@ const UIDirector = {
 
         ${currentItem.description ? `<p class="current-notes">${uiEsc(currentItem.description)}</p>` : ''}
 
-        ${this.planRowHtml(currentItem.plan_in, 'in')}
+        ${sentinelaCards ? '' : this.planRowHtml(currentItem.plan_in, 'in')}
         <div class="media-list${sentinela ? ' sent-list' : ''}" id="medias-checklist-list">
           ${mediasHtml}
         </div>
@@ -239,6 +243,7 @@ const UIDirector = {
 
     return `
       <div class="sent-cols" aria-hidden="true"><span>ESQUERDA</span><span>DIREITA</span></div>
+      ${this.planRowHtml(item.plan_in, 'in')}
       <div class="sent-cards">${cardsHtml}</div>
     `;
   },

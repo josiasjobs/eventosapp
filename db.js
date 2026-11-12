@@ -83,6 +83,12 @@ function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
     );
 
+    -- Configurações gerais (chave/valor), ex.: CAM padrão do enquadramento
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
     -- Mídias vinculadas ao Item
     CREATE TABLE IF NOT EXISTS medias (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +135,8 @@ function initSchema() {
     'ALTER TABLE items ADD COLUMN cam_left INTEGER',
     'ALTER TABLE items ADD COLUMN cam_right INTEGER',
     'ALTER TABLE items ADD COLUMN cam_speaker INTEGER',
+    // Speaker framing (enquadramento): cam_speaker + this preset, for any kind of part
+    'ALTER TABLE items ADD COLUMN preset_speaker INTEGER',
     'ALTER TABLE items ADD COLUMN plan_in_id INTEGER REFERENCES camera_plans(id) ON DELETE SET NULL',
     'ALTER TABLE items ADD COLUMN plan_out_id INTEGER REFERENCES camera_plans(id) ON DELETE SET NULL',
     'ALTER TABLE medias ADD COLUMN paragraph INTEGER',
@@ -263,6 +271,18 @@ const queries = {
     return db.prepare('DELETE FROM camera_plans WHERE id = ?').run(id);
   },
 
+  // Default framing camera per role, set in the camera plans window: { speaker, president } (null = unset)
+  getFramingDefaults() {
+    const get = key => parsePositiveInt(db.prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value) || null;
+    return { speaker: get('framing_cam_speaker'), president: get('framing_cam_president') };
+  },
+
+  setFramingDefaults({ speaker, president }) {
+    const stmt = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+    stmt.run('framing_cam_speaker', speaker == null ? null : String(speaker));
+    stmt.run('framing_cam_president', president == null ? null : String(president));
+  },
+
   // Items
   getItemsByShift(shiftId) {
     return db.prepare('SELECT * FROM items WHERE shift_id = ? ORDER BY order_num ASC, id ASC').all(shiftId);
@@ -275,10 +295,10 @@ const queries = {
   createItem(shiftId, title, scheduledTime, description, speaker, activityType, orderNum, talkNumber = null, cams = {}, plans = {}) {
     const res = db.prepare(`
       INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, talk_number,
-                         cam_left, cam_right, cam_speaker, plan_in_id, plan_out_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         cam_left, cam_right, cam_speaker, preset_speaker, plan_in_id, plan_out_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(shiftId, title, scheduledTime, description || '', speaker || '', activityType || '', orderNum, talkNumber,
-      cams.left ?? null, cams.right ?? null, cams.speaker ?? null, plans.inId ?? null, plans.outId ?? null);
+      cams.left ?? null, cams.right ?? null, cams.speaker ?? null, cams.preset ?? null, plans.inId ?? null, plans.outId ?? null);
     return res.lastInsertRowid;
   },
 
@@ -286,11 +306,11 @@ const queries = {
     return db.prepare(`
       UPDATE items
       SET title = ?, scheduled_time = ?, description = ?, speaker = ?, activity_type = ?, talk_number = ?,
-          cam_left = ?, cam_right = ?, cam_speaker = ?, plan_in_id = ?, plan_out_id = ?,
+          cam_left = ?, cam_right = ?, cam_speaker = ?, preset_speaker = ?, plan_in_id = ?, plan_out_id = ?,
           updated_at = datetime('now', 'localtime')
       WHERE id = ?
     `).run(title, scheduledTime, description || '', speaker || '', activityType || '', talkNumber,
-      cams.left ?? null, cams.right ?? null, cams.speaker ?? null, plans.inId ?? null, plans.outId ?? null, id);
+      cams.left ?? null, cams.right ?? null, cams.speaker ?? null, cams.preset ?? null, plans.inId ?? null, plans.outId ?? null, id);
   },
 
   // Another part of the same event (the shift's event) that already uses this talk number
@@ -535,6 +555,7 @@ const queries = {
             cam_left: item.cam_left ?? null,
             cam_right: item.cam_right ?? null,
             cam_speaker: item.cam_speaker ?? null,
+            preset_speaker: item.preset_speaker ?? null,
             plan_in: planSigla(item.plan_in_id),
             plan_out: planSigla(item.plan_out_id),
             order_num: item.order_num,
@@ -603,8 +624,8 @@ const queries = {
         for (const item of items) {
           const itemRes = db.prepare(`
             INSERT INTO items (shift_id, title, scheduled_time, description, speaker, activity_type, order_num, completed, talk_number,
-                               cam_left, cam_right, cam_speaker, plan_in_id, plan_out_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               cam_left, cam_right, cam_speaker, preset_speaker, plan_in_id, plan_out_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             newShiftId,
             item.title || '',
@@ -618,6 +639,7 @@ const queries = {
             item.cam_left ?? null,
             item.cam_right ?? null,
             item.cam_speaker ?? null,
+            parsePositiveInt(item.preset_speaker) || null,
             this.getCameraPlanBySigla(item.plan_in)?.id ?? null,
             this.getCameraPlanBySigla(item.plan_out)?.id ?? null
           );

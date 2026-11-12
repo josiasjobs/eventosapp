@@ -22,6 +22,9 @@ const AppState = {
   // Camera plan catalog: [{id, sigla, name, camera, preset, usage}]
   cameraPlans: [],
 
+  // Default framing CAM per role, set in the camera plans window: { speaker, president }
+  framingDefaults: { speaker: null, president: null },
+
   // Current Shift Full Data
   shiftData: {
     shift: null,
@@ -80,6 +83,11 @@ const AppState = {
   setWsStatus(connected, state = 'online') {
     this.wsConnected = connected;
     this.notify('WS_STATUS_CHANGED', { connected, state });
+  },
+
+  setFramingDefaults(defaults) {
+    this.framingDefaults = defaults || { speaker: null, president: null };
+    this.notify('cameraPlans', this.cameraPlans);
   },
 
   setCameraPlans(list) {

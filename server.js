@@ -31,14 +31,17 @@ function checkTalkNumber(raw, shiftId, itemId = null) {
   }
   return { talkNumber };
 }
-// Validates the Sentinela cameras of a part: { cams } or { status, error }.
-// A camera absent from the body keeps the item's current value (when editing); '' clears it.
+// Validates the cameras of a part (Sentinela sides + speaker framing CAM/preset): { cams } or { status, error }.
+// A field absent from the body keeps the item's current value (when editing); '' clears it.
 function checkCams(body, item = null) {
   const cams = {};
-  for (const [key, field, col] of [['left', 'camLeft', 'cam_left'], ['right', 'camRight', 'cam_right'], ['speaker', 'camSpeaker', 'cam_speaker']]) {
+  for (const [key, field, col] of [['left', 'camLeft', 'cam_left'], ['right', 'camRight', 'cam_right'],
+    ['speaker', 'camSpeaker', 'cam_speaker'], ['preset', 'presetSpeaker', 'preset_speaker']]) {
     if (body[field] === undefined) { cams[key] = item ? item[col] ?? null : null; continue; }
     const n = parsePositiveInt(body[field]);
-    if (n === false) return { status: 400, error: 'Câmera deve ser um número inteiro maior que zero.' };
+    if (n === false) {
+      return { status: 400, error: key === 'preset' ? 'Preset deve ser um número inteiro maior que zero.' : 'Câmera deve ser um número inteiro maior que zero.' };
+    }
     cams[key] = n;
   }
   return { cams };
@@ -628,6 +631,23 @@ app.delete('/api/camera-plans/:id', authenticate('admin'), (req, res) => {
   res.json({ success: true });
 });
 
+// Default framing camera per role (Orador / Presidente), edited in the camera plans window
+app.get('/api/framing-defaults', authenticate(), (req, res) => {
+  res.json(queries.getFramingDefaults());
+});
+
+app.put('/api/framing-defaults', authenticate('admin'), (req, res) => {
+  const body = req.body || {};
+  const speaker = parsePositiveInt(body.speaker);
+  const president = parsePositiveInt(body.president);
+  if (speaker === false || president === false) {
+    return res.status(400).json({ error: 'Câmera deve ser um número inteiro maior que zero.' });
+  }
+  queries.setFramingDefaults({ speaker, president });
+  broadcast('CAMERA_PLANS_UPDATED');
+  res.json({ success: true });
+});
+
 // 15. Items CRUD & Reordering (Admin only) - RF-06
 app.post('/api/items', authenticate('admin'), (req, res) => {
   const { shiftId, title, scheduledTime, description, speaker, activityType } = req.body;
@@ -938,6 +958,11 @@ app.post('/api/shifts/:id/import-jwlibrary', authenticate('admin'), upload.singl
     if (tmpDir) { try { await fs.promises.rm(tmpDir, { recursive: true, force: true }); } catch (_) {} }
     if (file) { try { await fs.promises.unlink(file.path); } catch (_) {} }
   }
+});
+
+// Unknown API route: JSON 404, never the SPA page (a 200 with HTML would look like a successful save)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Rota não encontrada.' });
 });
 
 // Fallback to SPA index.html for navigation (Express 5 compatible)

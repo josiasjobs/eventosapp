@@ -138,7 +138,11 @@
             ${notes ? `<span class="notes">${esc(notes)}</span>` : ''}
           </span>`;
     };
-    const partHeadHtml = (item, extraMeta = '') => `
+    const partHeadHtml = (item, extraMeta = '') => {
+      // Speaker framing (enquadramento) next to the speaker, on every kind of part
+      const framing = Logic.framingLabel(item);
+      if (framing) extraMeta = `<span class="speaker framing">${icon('video', 14)}<span>${esc(framing)}</span></span>` + extraMeta;
+      return `
           <div class="part-head">
             ${item.activity_type === 'presidente' ? '<span class="role">Presidente</span>' : ''}
             ${item.talk_number ? `<span class="num">Nº ${esc(item.talk_number)}</span>` : ''}
@@ -150,6 +154,7 @@
             ${extraMeta}
             ${item.description ? `<span class="notes">${esc(item.description)}</span>` : ''}
           </div>` : ''}`;
+    };
     // Entrada ('in') ou saída ('out') de câmera da parte; vazio quando a parte não tem plano
     const planLineHtml = (kind, plan) => {
       if (!plan) return '';
@@ -236,7 +241,7 @@
       const steps = item.medias || [];
       return `
         <section class="sent-part">
-          ${partHeadHtml(item, item.cam_speaker ? `<span class="notes">Orador CAM ${esc(item.cam_speaker)}</span>` : '')}
+          ${partHeadHtml(item)}
         </section>
         ${steps.length ? `<table class="sent">
           <thead><tr><th class="para"></th><th>ESQUERDA</th><th>DIREITA</th></tr></thead>

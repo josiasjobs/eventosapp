@@ -226,6 +226,7 @@ const Modals = {
         form.itemCamLeft.value = item.cam_left || '';
         form.itemCamRight.value = item.cam_right || '';
         form.itemCamSpeaker.value = item.cam_speaker || '';
+        form.itemPresetSpeaker.value = item.preset_speaker || '';
       }
     } else {
       titleEl.textContent = sent ? 'Nova Sentinela' : pres ? 'Novo presidente' : 'Nova parte';
@@ -239,6 +240,13 @@ const Modals = {
     }
 
     this.fillPlanSelects(form, found);
+
+    // Enquadramento: an empty CAM comes prefilled with the role's default (camera plans window)
+    if (!form.itemCamSpeaker.value) {
+      const type = sent ? 'sentinela' : pres ? 'presidente' : (found ? found.activity_type : '');
+      form.itemCamSpeaker.value = Logic.framingDefaultCam(type, AppState.framingDefaults) || '';
+    }
+    document.getElementById('item-speaker-label').textContent = pres ? 'Presidente' : 'Orador';
 
     // Sentinela: cameras shown, "Discurso" box hidden but checked (the number is required)
     form.querySelector('.cam-group').hidden = !sent;
@@ -295,11 +303,13 @@ const Modals = {
     // Disabled selects (empty catalog) are left out so the server keeps the current plans
     if (!form.itemPlanIn.disabled) payload.planInId = form.itemPlanIn.value;
     if (!form.itemPlanOut.disabled) payload.planOutId = form.itemPlanOut.value;
+    // Enquadramento (any kind of part); '' clears it
+    payload.camSpeaker = form.itemCamSpeaker.value.trim();
+    payload.presetSpeaker = form.itemPresetSpeaker.value.trim();
     if (this.itemSentinela) {
       // '' clears a camera
       payload.camLeft = form.itemCamLeft.value.trim();
       payload.camRight = form.itemCamRight.value.trim();
-      payload.camSpeaker = form.itemCamSpeaker.value.trim();
     }
     return payload;
   },
@@ -325,14 +335,13 @@ const Modals = {
       window.showToast('Informe o número do discurso (inteiro maior que zero).', 'warning');
       return;
     }
-    if (this.itemSentinela) {
-      const cams = [['camLeft', form.itemCamLeft], ['camRight', form.itemCamRight], ['camSpeaker', form.itemCamSpeaker]];
-      for (const [key, input] of cams) {
-        if (Logic.parsePositiveInt(payload[key]) === false) {
-          input.focus();
-          window.showToast('Câmera deve ser um número inteiro maior que zero.', 'warning');
-          return;
-        }
+    const cams = [['camSpeaker', form.itemCamSpeaker], ['presetSpeaker', form.itemPresetSpeaker]];
+    if (this.itemSentinela) cams.push(['camLeft', form.itemCamLeft], ['camRight', form.itemCamRight]);
+    for (const [key, input] of cams) {
+      if (Logic.parsePositiveInt(payload[key]) === false) {
+        input.focus();
+        window.showToast(key === 'presetSpeaker' ? 'Preset deve ser um número inteiro maior que zero.' : 'Câmera deve ser um número inteiro maior que zero.', 'warning');
+        return;
       }
     }
 
@@ -509,6 +518,28 @@ const Modals = {
     AppState.subscribe(type => {
       if (type === 'cameraPlans' && modal.classList.contains('open')) this.renderCameraPlans();
     });
+    // Default framing CAM: saved as soon as a field changes
+    const framingForm = document.getElementById('framing-defaults-form');
+    framingForm.addEventListener('submit', e => e.preventDefault());
+    framingForm.addEventListener('change', () => this.saveFramingDefaults(framingForm));
+  },
+
+  async saveFramingDefaults(form) {
+    const data = { speaker: form.speaker.value.trim(), president: form.president.value.trim() };
+    for (const key of ['speaker', 'president']) {
+      if (Logic.parsePositiveInt(data[key]) === false) {
+        form[key].focus();
+        window.showToast('Câmera deve ser um número inteiro maior que zero.', 'warning');
+        return;
+      }
+    }
+    try {
+      await Api.setFramingDefaults(data);
+      AppState.setFramingDefaults(await Api.getFramingDefaults());
+      window.showToast('Enquadramento padrão salvo.', 'success');
+    } catch (err) {
+      window.showToast(err.message, 'error');
+    }
   },
 
   openCameraPlans() {
@@ -528,6 +559,13 @@ const Modals = {
           <button type="button" class="icon-btn" data-plan-menu="${esc(p.id)}" title="Mais" aria-label="Mais opções">${window.icon('more')}</button>
         </div>`).join('')
       : '<p class="plan-empty">Nenhum plano cadastrado.</p>';
+    // Don't overwrite a field while it is being edited
+    const framing = AppState.framingDefaults || {};
+    const form = document.getElementById('framing-defaults-form');
+    if (!form.contains(document.activeElement)) {
+      form.speaker.value = framing.speaker || '';
+      form.president.value = framing.president || '';
+    }
   },
 
   openCameraPlanMenu(anchorEl, id) {

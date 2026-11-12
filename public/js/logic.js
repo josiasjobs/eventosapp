@@ -199,6 +199,21 @@
     return `${plan.sigla} · ${plan.name} · CAM ${plan.camera} · P${plan.preset}`;
   }
 
+  // Speaker framing of a part (enquadramento): "CAM 2 · P4", "CAM 2", "P4" or '' when empty
+  function framingLabel(item) {
+    const cam = item ? parsePositiveInt(item.cam_speaker) : null;
+    const preset = item ? parsePositiveInt(item.preset_speaker) : null;
+    return [cam ? `CAM ${cam}` : '', preset ? `P${preset}` : ''].filter(Boolean).join(' · ');
+  }
+
+  // Default framing camera for a new part (set in the camera plans window): the president's
+  // for 'presidente', the speaker's for everything else (Sentinela included). null when unset.
+  function framingDefaultCam(activityType, defaults) {
+    const d = defaults || {};
+    const cam = parsePositiveInt(activityType === 'presidente' ? d.president : d.speaker);
+    return cam || null;
+  }
+
   // Plan transition of a part: "PP → PA", "PP →" (no plan after), "→ PA" (no plan before)
   function planSiglas(item) {
     const from = item.plan_in ? item.plan_in.sigla : '';
@@ -255,5 +270,5 @@
     return value.length <= PHOTO_MAX_LENGTH && PHOTO_PATTERN.test(value);
   }
 
-  return { partBadgesHtml, notesLabel, mediaNotesText, shiftHasSentinela, checkCameraPlan, planLabel, planSiglas, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials, coverScale, clampPan, fitWithin, isValidPhoto };
+  return { partBadgesHtml, notesLabel, mediaNotesText, shiftHasSentinela, checkCameraPlan, planLabel, framingLabel, framingDefaultCam, planSiglas, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials, coverScale, clampPan, fitWithin, isValidPhoto };
 });
