@@ -227,9 +227,9 @@ test('enquadramento: preset do orador é salvo, atualizado e vai no backup', () 
 });
 
 test('CAM padrão do enquadramento por papel', () => {
-  assert.deepEqual(queries.getFramingDefaults(), { speaker: null, president: null });
-  queries.setFramingDefaults({ speaker: 2, president: 1 });
-  assert.deepEqual(queries.getFramingDefaults(), { speaker: 2, president: 1 });
-  queries.setFramingDefaults({ speaker: null, president: 4 });
-  assert.deepEqual(queries.getFramingDefaults(), { speaker: null, president: 4 });
+  assert.deepEqual(queries.getFramingDefaults(), { speaker: null, president: null, interview: null });
+  queries.setFramingDefaults({ speaker: 2, president: 1, interview: 5 });
+  assert.deepEqual(queries.getFramingDefaults(), { speaker: 2, president: 1, interview: 5 });
+  queries.setFramingDefaults({ speaker: null, president: 4, interview: null });
+  assert.deepEqual(queries.getFramingDefaults(), { speaker: null, president: 4, interview: null });
 });

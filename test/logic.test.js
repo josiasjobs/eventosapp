@@ -323,3 +323,18 @@ test('framingDefaultCam usa a CAM do presidente só para presidente', () => {
   assert.equal(L.framingDefaultCam('', { speaker: null }), null);
   assert.equal(L.framingDefaultCam('presidente', null), null);
 });
+
+test('framingDefaultCam usa a CAM de entrevista/teatro para essas partes', () => {
+  const d = { speaker: 2, president: 1, interview: 5 };
+  assert.equal(L.framingDefaultCam('interview', d), 5);
+  assert.equal(L.framingDefaultCam('theater', d), 5);
+  assert.equal(L.framingDefaultCam('', { speaker: 2, interview: null }), 2);
+  assert.equal(L.framingDefaultCam('interview', { speaker: 2, interview: null }), null);
+});
+
+test('mediaDetailsText junta notas e enquadramento da mídia', () => {
+  assert.equal(L.mediaDetailsText({ type: 'interview', reference: '', cam_speaker: 2, preset_speaker: 4 }), 'CAM 2 · P4');
+  assert.equal(L.mediaDetailsText({ type: 'image', reference: 'Projetor 2', cam_speaker: null, preset_speaker: null }), 'Projetor 2');
+  assert.equal(L.mediaDetailsText({ type: 'theater', reference: 'CAM 2 - P4', cam_speaker: 3, preset_speaker: null }), 'Camera - Preset: CAM 2 - P4 · CAM 3');
+  assert.equal(L.mediaDetailsText({ type: 'other', reference: '' }), '');
+});

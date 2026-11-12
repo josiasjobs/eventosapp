@@ -26,7 +26,8 @@ const UIDirector = {
       image: 'Imagem',
       video: 'Vídeo',
       interview: 'Entrevista',
-      theater: 'Teatro'
+      theater: 'Teatro',
+      other: 'Nota'
     };
     const known = Object.prototype.hasOwnProperty.call(labels, type);
     return {
@@ -162,7 +163,7 @@ const UIDirector = {
   mediaRowHtml(media, extraClass = '') {
     const typeInfo = this.getMediaTypeInfo(media.type);
     const done = !!media.completed;
-    const notes = Logic.mediaNotesText(media);
+    const notes = Logic.mediaDetailsText(media);
     return `
           <div class="media-row${done ? ' is-done' : ''}${extraClass}" data-media-id="${Number(media.id)}"
                role="button" tabindex="0" aria-pressed="${done}">
@@ -791,6 +792,8 @@ const UIDirector = {
         Modals.openQuestionModal(AppState.currentItemId, null, last ? { paragraph: last.paragraph, side: last.side } : {});
       }
       else if (opt.dataset.fab === 'media' && AppState.currentItemId) Modals.openMediaModal(AppState.currentItemId);
+      else if (opt.dataset.fab === 'interview' && AppState.currentItemId) Modals.openInterviewModal(AppState.currentItemId);
+      else if (opt.dataset.fab === 'note' && AppState.currentItemId) Modals.openNoteModal(AppState.currentItemId);
     });
   },
 
@@ -798,8 +801,10 @@ const UIDirector = {
     const fab = document.getElementById('fab-add');
     const menu = document.getElementById('fab-menu');
     if (!fab || !menu) return;
-    const mediaOpt = menu.querySelector('[data-fab="media"]');
-    if (mediaOpt) mediaOpt.disabled = !AppState.getCurrentItem();
+    // Media-type options need a current part to attach to
+    for (const opt of menu.querySelectorAll('[data-fab="media"], [data-fab="interview"], [data-fab="note"]')) {
+      opt.disabled = !AppState.getCurrentItem();
+    }
     const playlistOpt = menu.querySelector('[data-fab="jwplaylist"]');
     if (playlistOpt) playlistOpt.disabled = !AppState.getCurrentItem();
     const questionOpt = menu.querySelector('[data-fab="question"]');

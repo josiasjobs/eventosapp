@@ -66,6 +66,8 @@
         <button type="button" class="fab-option" data-fab="item" role="menuitem"><span data-icon="list"></span><span>Parte</span></button>
         <button type="button" class="fab-option" data-fab="presidente" role="menuitem"><span data-icon="mic-vocal"></span><span>Presidente</span></button>
         <button type="button" class="fab-option" data-fab="media" role="menuitem"><span data-icon="file"></span><span>Mídia</span></button>
+        <button type="button" class="fab-option" data-fab="interview" role="menuitem"><span data-icon="mic"></span><span>Entrevista / Teatro</span></button>
+        <button type="button" class="fab-option" data-fab="note" role="menuitem"><span data-icon="file"></span><span>Nota</span></button>
         <button type="button" class="fab-option" data-fab="jwplaylist" role="menuitem"><span data-icon="download"></span><span>Importar JW Playlist</span></button>
         <button type="button" class="fab-option" data-fab="jwlibrary" role="menuitem"><span data-icon="download"></span><span>Importar BK JW</span></button>
         <button type="button" class="fab-option" data-fab="sentinela" role="menuitem"><span data-icon="book"></span><span>Sentinela</span></button>
@@ -244,9 +246,6 @@
               <button type="button" class="type-btn" role="radio" data-type="bible" aria-checked="true" title="Bíblia" aria-label="Bíblia" data-icon="book"></button>
               <button type="button" class="type-btn" role="radio" data-type="video" aria-checked="false" title="Vídeo" aria-label="Vídeo" data-icon="video"></button>
               <button type="button" class="type-btn" role="radio" data-type="image" aria-checked="false" title="Imagem" aria-label="Imagem" data-icon="image"></button>
-              <button type="button" class="type-btn" role="radio" data-type="interview" aria-checked="false" title="Entrevista" aria-label="Entrevista" data-icon="mic"></button>
-              <button type="button" class="type-btn" role="radio" data-type="theater" aria-checked="false" title="Teatro" aria-label="Teatro" data-icon="drama"></button>
-              <button type="button" class="type-btn" role="radio" data-type="other" aria-checked="false" title="Outro" aria-label="Outro" data-icon="file"></button>
             </div>
             <input type="hidden" name="mediaType" value="bible">
           </div>
@@ -261,6 +260,73 @@
           <div class="form-group media-paragraph-group" hidden>
             <label class="form-label" for="media-paragraph">§ Parágrafo</label>
             <input type="number" class="form-input" id="media-paragraph" name="mediaParagraph" min="1" step="1" inputmode="numeric" autocomplete="off">
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: ENTREVISTA / TEATRO                     -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-interview-editor" data-autofocus>
+    <div class="modal-dialog">
+      <form id="form-interview" onsubmit="event.preventDefault(); Modals.submitInterview(this);">
+        <div class="modal-header">
+          <h2 class="modal-title" id="interview-modal-title">Nova entrevista / teatro</h2>
+          <button type="button" class="icon-btn" title="Fechar" aria-label="Fechar" data-icon="x"
+            onclick="Modals.close('modal-interview-editor')"></button>
+          <button type="submit" class="icon-btn btn-accent" title="Salvar" aria-label="Salvar"
+            data-icon="check"></button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="interview-kind">Tipo</label>
+            <select class="form-input" id="interview-kind" name="interviewKind">
+              <option value="interview">Entrevista</option>
+              <option value="theater">Teatro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="interview-info">Informações</label>
+            <input type="text" class="form-input" id="interview-info" name="interviewInfo" required autocomplete="off">
+          </div>
+          <!-- Mesmo enquadramento do orador; CAM vem da CAM padrão (modal de planos), editável -->
+          <fieldset class="form-group framing-group">
+            <legend class="form-label">Enquadramento</legend>
+            <div class="framing-row">
+              <div class="cam-field">
+                <label class="form-label" for="interview-cam">CAM</label>
+                <input type="number" class="form-input" id="interview-cam" name="interviewCam" min="1" step="1" inputmode="numeric">
+              </div>
+              <div class="cam-field">
+                <label class="form-label" for="interview-preset">PRESET</label>
+                <input type="number" class="form-input" id="interview-preset" name="interviewPreset" min="1" step="1" inputmode="numeric">
+              </div>
+            </div>
+          </fieldset>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: NOTA                                    -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="modal-note-editor" data-autofocus>
+    <div class="modal-dialog">
+      <form id="form-note" onsubmit="event.preventDefault(); Modals.submitNote(this);">
+        <div class="modal-header">
+          <h2 class="modal-title" id="note-modal-title">Nova nota</h2>
+          <button type="button" class="icon-btn" title="Fechar" aria-label="Fechar" data-icon="x"
+            onclick="Modals.close('modal-note-editor')"></button>
+          <button type="submit" class="icon-btn btn-accent" title="Salvar" aria-label="Salvar"
+            data-icon="check"></button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="note-info">Informações</label>
+            <input type="text" class="form-input" id="note-info" name="noteInfo" required autocomplete="off">
           </div>
         </div>
       </form>
@@ -493,7 +559,9 @@
         <dl class="fab-help-list">
           <dt>Parte</dt><dd>Cria uma parte nova no turno.</dd>
           <dt>Presidente</dt><dd>Cria uma parte do presidente, igual a uma parte comum, marcada com o selo PRESIDENTE na lista para o diretor saber quando ele entra no palco.</dd>
-          <dt>Mídia</dt><dd>Adiciona uma mídia à parte selecionada.</dd>
+          <dt>Mídia</dt><dd>Adiciona uma mídia (Bíblia, Vídeo ou Imagem) à parte selecionada.</dd>
+          <dt>Entrevista / Teatro</dt><dd>Adiciona uma entrevista ou teatro à parte selecionada, com informações e enquadramento (CAM e preset).</dd>
+          <dt>Nota</dt><dd>Adiciona uma nota à parte selecionada, só com o campo Informações.</dd>
           <dt>Importar JW Playlist</dt><dd>Somente uma playlist: importa um arquivo .jwlplaylist e coloca as mídias dele na parte selecionada.</dd>
           <dt>Importar BK JW</dt><dd>Todas as playlists: importa um backup .jwlibrary do JW Library. Cada playlist com itens vira uma parte, no turno que você escolher.</dd>
           <dt>Sentinela</dt><dd>Cria a parte da Sentinela, com perguntas por parágrafo e lado. Só uma por turno.</dd>
@@ -516,7 +584,7 @@
         <!-- CAM que já vem preenchida no Enquadramento das partes novas -->
         <form class="framing-defaults" id="framing-defaults-form">
           <h3 class="framing-defaults-title">Enquadramento padrão</h3>
-          <p class="form-hint">CAM que já vem preenchida no enquadramento ao criar uma parte (pode ser alterada no formulário).</p>
+          <p class="form-hint">CAM que já vem preenchida no enquadramento ao criar uma parte ou uma entrevista/teatro (pode ser alterada no formulário).</p>
           <div class="framing-row">
             <div class="cam-field">
               <label class="form-label" for="framing-default-speaker">Orador · CAM</label>
@@ -525,6 +593,10 @@
             <div class="cam-field">
               <label class="form-label" for="framing-default-president">Presidente · CAM</label>
               <input type="number" class="form-input" id="framing-default-president" name="president" min="1" step="1" inputmode="numeric">
+            </div>
+            <div class="cam-field">
+              <label class="form-label" for="framing-default-interview">Entrevista / Teatro · CAM</label>
+              <input type="number" class="form-input" id="framing-default-interview" name="interview" min="1" step="1" inputmode="numeric">
             </div>
           </div>
         </form>

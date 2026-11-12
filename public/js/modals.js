@@ -366,6 +366,11 @@ const Modals = {
   mediaSentinela: false,
 
   openMediaModal(itemId, mediaId = null) {
+    // Entrevista/Teatro and Nota have their own forms; edit them there
+    const existing = mediaId ? this.findMedia(itemId, mediaId) : null;
+    if (existing && (existing.type === 'interview' || existing.type === 'theater')) return this.openInterviewModal(itemId, mediaId);
+    if (existing && existing.type === 'other') return this.openNoteModal(itemId, mediaId);
+
     this.mediaTargetItemId = itemId;
     this.mediaEditId = mediaId;
     const titleEl = document.getElementById('media-modal-title');
@@ -525,8 +530,8 @@ const Modals = {
   },
 
   async saveFramingDefaults(form) {
-    const data = { speaker: form.speaker.value.trim(), president: form.president.value.trim() };
-    for (const key of ['speaker', 'president']) {
+    const data = { speaker: form.speaker.value.trim(), president: form.president.value.trim(), interview: form.interview.value.trim() };
+    for (const key of ['speaker', 'president', 'interview']) {
       if (Logic.parsePositiveInt(data[key]) === false) {
         form[key].focus();
         window.showToast('Câmera deve ser um número inteiro maior que zero.', 'warning');
@@ -565,6 +570,7 @@ const Modals = {
     if (!form.contains(document.activeElement)) {
       form.speaker.value = framing.speaker || '';
       form.president.value = framing.president || '';
+      form.interview.value = framing.interview || '';
     }
   },
 
@@ -671,6 +677,107 @@ const Modals = {
         });
       }
       this.close('modal-media-editor');
+      window.dispatchEvent(new CustomEvent('refresh-shift-data'));
+    } catch (err) {
+      window.showToast(err.message, 'error');
+    }
+  },
+
+  // ==========================================
+  // ENTREVISTA / TEATRO (FAB) - with enquadramento
+  // ==========================================
+  interviewEditId: null,
+  interviewTargetItemId: null,
+
+  // The media being edited within an item, or null
+  findMedia(itemId, mediaId) {
+    const item = AppState.shiftData.items.find(i => i.id === Number(itemId));
+    return item && item.medias ? item.medias.find(m => m.id === Number(mediaId)) || null : null;
+  },
+
+  openInterviewModal(itemId, mediaId = null) {
+    this.interviewTargetItemId = itemId;
+    this.interviewEditId = mediaId;
+    const form = document.getElementById('form-interview');
+    form.reset();
+    const media = mediaId ? this.findMedia(itemId, mediaId) : null;
+    document.getElementById('interview-modal-title').textContent = mediaId ? 'Editar entrevista / teatro' : 'Nova entrevista / teatro';
+    if (media) {
+      form.interviewKind.value = media.type === 'theater' ? 'theater' : 'interview';
+      form.interviewInfo.value = media.title || '';
+      form.interviewCam.value = media.cam_speaker || '';
+      form.interviewPreset.value = media.preset_speaker || '';
+    } else {
+      // CAM comes prefilled with the speaker default (camera plans window), editable
+      form.interviewCam.value = Logic.framingDefaultCam('interview', AppState.framingDefaults) || '';
+    }
+    this.open('modal-interview-editor');
+  },
+
+  async submitInterview(form) {
+    const info = form.interviewInfo.value.trim();
+    if (!info) {
+      form.interviewInfo.focus();
+      window.showToast('Informe as informações.', 'warning');
+      return;
+    }
+    const cam = form.interviewCam.value.trim();
+    const preset = form.interviewPreset.value.trim();
+    if (Logic.parsePositiveInt(cam) === false) {
+      form.interviewCam.focus();
+      window.showToast('Câmera deve ser um número inteiro maior que zero.', 'warning');
+      return;
+    }
+    if (Logic.parsePositiveInt(preset) === false) {
+      form.interviewPreset.focus();
+      window.showToast('Preset deve ser um número inteiro maior que zero.', 'warning');
+      return;
+    }
+    // reference is not sent: it keeps whatever notes a media already had
+    await this.saveStepMedia('modal-interview-editor', this.interviewEditId, this.interviewTargetItemId, {
+      title: info,
+      type: form.interviewKind.value,
+      camSpeaker: cam,
+      presetSpeaker: preset
+    });
+  },
+
+  // ==========================================
+  // NOTA (FAB) - only "Informações"
+  // ==========================================
+  noteEditId: null,
+  noteTargetItemId: null,
+
+  openNoteModal(itemId, mediaId = null) {
+    this.noteTargetItemId = itemId;
+    this.noteEditId = mediaId;
+    const form = document.getElementById('form-note');
+    form.reset();
+    const media = mediaId ? this.findMedia(itemId, mediaId) : null;
+    document.getElementById('note-modal-title').textContent = mediaId ? 'Editar nota' : 'Nova nota';
+    if (media) form.noteInfo.value = media.title || '';
+    this.open('modal-note-editor');
+  },
+
+  async submitNote(form) {
+    const info = form.noteInfo.value.trim();
+    if (!info) {
+      form.noteInfo.focus();
+      window.showToast('Informe as informações.', 'warning');
+      return;
+    }
+    await this.saveStepMedia('modal-note-editor', this.noteEditId, this.noteTargetItemId, { title: info, type: 'other' });
+  },
+
+  // Create or update a media from the FAB forms, then close the modal and refresh the shift
+  async saveStepMedia(modalId, editId, itemId, payload) {
+    try {
+      if (editId) {
+        await Api.updateMedia(editId, payload);
+      } else {
+        await Api.createMedia({ itemId, ...payload });
+      }
+      this.close(modalId);
       window.dispatchEvent(new CustomEvent('refresh-shift-data'));
     } catch (err) {
       window.showToast(err.message, 'error');

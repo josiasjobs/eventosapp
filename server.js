@@ -89,7 +89,12 @@ function checkStep(mediaType, fields, parentItem) {
   }
   const paragraph = parsePositiveInt(fields.paragraph);
   if (paragraph === false) return { error: 'Informe o parágrafo (número inteiro maior que zero).' };
-  return { step: { paragraph, side: '', person: '', photo: '' }, title: (raw) => String(raw).trim() };
+  // Enquadramento (entrevista/teatro/nota): null when empty
+  const camSpeaker = parsePositiveInt(fields.camSpeaker);
+  if (camSpeaker === false) return { error: 'Câmera deve ser um número inteiro maior que zero.' };
+  const presetSpeaker = parsePositiveInt(fields.presetSpeaker);
+  if (presetSpeaker === false) return { error: 'Preset deve ser um número inteiro maior que zero.' };
+  return { step: { paragraph, side: '', person: '', photo: '', camSpeaker, presetSpeaker }, title: (raw) => String(raw).trim() };
 }
 
 // True when every id in the list is one of the given rows (items of a shift, medias of an item)
@@ -631,7 +636,7 @@ app.delete('/api/camera-plans/:id', authenticate('admin'), (req, res) => {
   res.json({ success: true });
 });
 
-// Default framing camera per role (Orador / Presidente), edited in the camera plans window
+// Default framing camera per role (Orador / Presidente / Entrevista e Teatro), edited in the camera plans window
 app.get('/api/framing-defaults', authenticate(), (req, res) => {
   res.json(queries.getFramingDefaults());
 });
@@ -640,10 +645,11 @@ app.put('/api/framing-defaults', authenticate('admin'), (req, res) => {
   const body = req.body || {};
   const speaker = parsePositiveInt(body.speaker);
   const president = parsePositiveInt(body.president);
-  if (speaker === false || president === false) {
+  const interview = parsePositiveInt(body.interview);
+  if (speaker === false || president === false || interview === false) {
     return res.status(400).json({ error: 'Câmera deve ser um número inteiro maior que zero.' });
   }
-  queries.setFramingDefaults({ speaker, president });
+  queries.setFramingDefaults({ speaker, president, interview });
   broadcast('CAMERA_PLANS_UPDATED');
   res.json({ success: true });
 });
@@ -830,7 +836,9 @@ app.put('/api/medias/:id', authenticate('admin'), (req, res) => {
     paragraph: req.body.paragraph !== undefined ? req.body.paragraph : media.paragraph,
     side: req.body.side !== undefined ? req.body.side : media.side,
     person: req.body.person !== undefined ? req.body.person : media.person,
-    photo: req.body.photo !== undefined ? req.body.photo : media.photo
+    photo: req.body.photo !== undefined ? req.body.photo : media.photo,
+    camSpeaker: req.body.camSpeaker !== undefined ? req.body.camSpeaker : media.cam_speaker,
+    presetSpeaker: req.body.presetSpeaker !== undefined ? req.body.presetSpeaker : media.preset_speaker
   };
   const stepCheck = checkStep(mediaType, merged, item);
   if (stepCheck.error) return res.status(400).json({ error: stepCheck.error });

@@ -206,11 +206,13 @@
     return [cam ? `CAM ${cam}` : '', preset ? `P${preset}` : ''].filter(Boolean).join(' · ');
   }
 
-  // Default framing camera for a new part (set in the camera plans window): the president's
-  // for 'presidente', the speaker's for everything else (Sentinela included). null when unset.
+  // Default framing camera (set in the camera plans window): the president's for 'presidente',
+  // the interview/theater one for 'interview' and 'theater', the speaker's for everything else
+  // (Sentinela included). null when unset.
   function framingDefaultCam(activityType, defaults) {
     const d = defaults || {};
-    const cam = parsePositiveInt(activityType === 'presidente' ? d.president : d.speaker);
+    const byType = { presidente: d.president, interview: d.interview, theater: d.interview };
+    const cam = parsePositiveInt(activityType in byType ? byType[activityType] : d.speaker);
     return cam || null;
   }
 
@@ -239,6 +241,11 @@
   function mediaNotesText(media) {
     const notes = mediaNotes(media.reference);
     return notes && PRESET_TYPES.includes(media.type) ? `${notesLabel(media.type)}: ${notes}` : notes;
+  }
+
+  // Notes plus enquadramento of a media, joined by " · " (screen and print)
+  function mediaDetailsText(media) {
+    return [mediaNotesText(media), framingLabel(media)].filter(Boolean).join(' · ');
   }
 
   // Smallest scale that covers the frame (no empty edges)
@@ -270,5 +277,5 @@
     return value.length <= PHOTO_MAX_LENGTH && PHOTO_PATTERN.test(value);
   }
 
-  return { partBadgesHtml, notesLabel, mediaNotesText, shiftHasSentinela, checkCameraPlan, planLabel, framingLabel, framingDefaultCam, planSiglas, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials, coverScale, clampPan, fitWithin, isValidPhoto };
+  return { partBadgesHtml, notesLabel, mediaNotesText, mediaDetailsText, shiftHasSentinela, checkCameraPlan, planLabel, framingLabel, framingDefaultCam, planSiglas, localDateISO, mediaNotes, parsePositiveInt, parseTalkNumber, pickInitialItem, menuPosition, itemCompletionAfterToggle, pickInitialShift, itemStatus, escapeHtml, moveId, dropIndex, sortByIds, isMediaStep, checkQuestionStep, groupSentinelaSteps, stepNav, pickInitialStep, initials, coverScale, clampPan, fitWithin, isValidPhoto };
 });
