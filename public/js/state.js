@@ -22,8 +22,8 @@ const AppState = {
   // Camera plan catalog: [{id, sigla, name, camera, preset, usage}]
   cameraPlans: [],
 
-  // Default framing CAM per role, set in the camera plans window: { speaker, president }
-  framingDefaults: { speaker: null, president: null },
+  // Default framing CAM per role, set in the camera plans window: { speaker, president, interview }
+  framingDefaults: { speaker: null, president: null, interview: null },
 
   // Current Shift Full Data
   shiftData: {
@@ -86,7 +86,7 @@ const AppState = {
   },
 
   setFramingDefaults(defaults) {
-    this.framingDefaults = defaults || { speaker: null, president: null };
+    this.framingDefaults = defaults || { speaker: null, president: null, interview: null };
     this.notify('cameraPlans', this.cameraPlans);
   },
 

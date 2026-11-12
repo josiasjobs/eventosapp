@@ -13,7 +13,7 @@
 
   const TYPE_LABELS = {
     bible: 'Bíblia', video: 'Vídeo', image: 'Imagem',
-    interview: 'Entrevista', theater: 'Teatro', other: 'Outro'
+    interview: 'Entrevista', theater: 'Teatro', other: 'Nota'
   };
 
   const isSentinela = (item) => item.activity_type === 'sentinela';
@@ -129,7 +129,7 @@
     // Box, type and title of a media (the body of a printed media row)
     const mediaInner = (m) => {
       const type = TYPE_LABELS[m.type] ? m.type : 'other';
-      const notes = Logic.mediaNotesText(m);
+      const notes = Logic.mediaDetailsText(m);
       return `
           <span class="box"></span>
           <span class="type">${icon(typeIcons[type], 16)}<span>${esc(TYPE_LABELS[type])}</span></span>

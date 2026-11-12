@@ -142,7 +142,10 @@ function initSchema() {
     'ALTER TABLE medias ADD COLUMN paragraph INTEGER',
     "ALTER TABLE medias ADD COLUMN side TEXT DEFAULT ''",
     "ALTER TABLE medias ADD COLUMN person TEXT DEFAULT ''",
-    "ALTER TABLE medias ADD COLUMN photo TEXT DEFAULT ''"
+    "ALTER TABLE medias ADD COLUMN photo TEXT DEFAULT ''",
+    // Enquadramento de entrevista/teatro (mesmos campos do orador nas partes)
+    'ALTER TABLE medias ADD COLUMN cam_speaker INTEGER',
+    'ALTER TABLE medias ADD COLUMN preset_speaker INTEGER'
   ]) {
     try {
       db.prepare(sql).run();
@@ -271,16 +274,17 @@ const queries = {
     return db.prepare('DELETE FROM camera_plans WHERE id = ?').run(id);
   },
 
-  // Default framing camera per role, set in the camera plans window: { speaker, president } (null = unset)
+  // Default framing camera per role, set in the camera plans window: { speaker, president, interview } (null = unset)
   getFramingDefaults() {
     const get = key => parsePositiveInt(db.prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value) || null;
-    return { speaker: get('framing_cam_speaker'), president: get('framing_cam_president') };
+    return { speaker: get('framing_cam_speaker'), president: get('framing_cam_president'), interview: get('framing_cam_interview') };
   },
 
-  setFramingDefaults({ speaker, president }) {
+  setFramingDefaults({ speaker, president, interview }) {
     const stmt = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
     stmt.run('framing_cam_speaker', speaker == null ? null : String(speaker));
     stmt.run('framing_cam_president', president == null ? null : String(president));
+    stmt.run('framing_cam_interview', interview == null ? null : String(interview));
   },
 
   // Items
@@ -356,9 +360,9 @@ const queries = {
 
   createMedia(itemId, title, type, reference, orderNum, step = {}) {
     const res = db.prepare(`
-      INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person, photo)
-      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-    `).run(itemId, title, type, reference || '', orderNum, step.paragraph ?? null, step.side || '', step.person || '', step.photo || '');
+      INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person, photo, cam_speaker, preset_speaker)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
+    `).run(itemId, title, type, reference || '', orderNum, step.paragraph ?? null, step.side || '', step.person || '', step.photo || '', step.camSpeaker ?? null, step.presetSpeaker ?? null);
     return res.lastInsertRowid;
   },
 
@@ -387,10 +391,10 @@ const queries = {
   updateMedia(id, title, type, reference, step = {}) {
     return db.prepare(`
       UPDATE medias
-      SET title = ?, type = ?, reference = ?, paragraph = ?, side = ?, person = ?, photo = ?,
+      SET title = ?, type = ?, reference = ?, paragraph = ?, side = ?, person = ?, photo = ?, cam_speaker = ?, preset_speaker = ?,
           updated_at = datetime('now', 'localtime')
       WHERE id = ?
-    `).run(title, type, reference || '', step.paragraph ?? null, step.side || '', step.person || '', step.photo || '', id);
+    `).run(title, type, reference || '', step.paragraph ?? null, step.side || '', step.person || '', step.photo || '', step.camSpeaker ?? null, step.presetSpeaker ?? null, id);
   },
 
   updateMediaOrder(id, orderNum) {
@@ -574,7 +578,9 @@ const queries = {
               paragraph: media.paragraph ?? null,
               side: media.side || '',
               person: media.person || '',
-              photo: media.photo || ''
+              photo: media.photo || '',
+              cam_speaker: media.cam_speaker ?? null,
+              preset_speaker: media.preset_speaker ?? null
             });
           }
 
@@ -649,8 +655,8 @@ const queries = {
           const medias = Array.isArray(item.medias) ? item.medias : [];
           for (const media of medias) {
             db.prepare(`
-              INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person, photo)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              INSERT INTO medias (item_id, title, type, reference, order_num, completed, paragraph, side, person, photo, cam_speaker, preset_speaker)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
               newItemId,
               media.title || '',
@@ -661,7 +667,9 @@ const queries = {
               media.paragraph ?? null,
               media.side || '',
               media.person || '',
-              media.photo || ''
+              media.photo || '',
+              parsePositiveInt(media.cam_speaker) || null,
+              parsePositiveInt(media.preset_speaker) || null
             );
           }
         }

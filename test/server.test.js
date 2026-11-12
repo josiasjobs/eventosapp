@@ -129,10 +129,37 @@ test('rota /api desconhecida responde 404 em JSON, não a página', async () => 
 });
 
 test('CAM padrão do enquadramento: admin salva e qualquer sessão lê', async () => {
-  const put = await api('PUT', '/api/framing-defaults', { body: { speaker: '3', president: '1' } });
+  const put = await api('PUT', '/api/framing-defaults', { body: { speaker: '3', president: '1', interview: '5' } });
   assert.equal(put.status, 200);
   const get = await api('GET', '/api/framing-defaults');
-  assert.deepEqual(get.json, { speaker: 3, president: 1 });
+  assert.deepEqual(get.json, { speaker: 3, president: 1, interview: 5 });
   const bad = await api('PUT', '/api/framing-defaults', { body: { speaker: '0' } });
   assert.equal(bad.status, 400);
+});
+
+test('entrevista com enquadramento: salva CAM e preset da mídia e valida os números', async () => {
+  const event = queries.getActiveEvent();
+  const shiftA = queries.getShiftsByDay(queries.getDaysByEvent(event.id)[0].id)[0].id;
+  const [itemA] = queries.getItemsByShift(shiftA);
+
+  const bad = await api('POST', '/api/medias', { body: { itemId: itemA.id, title: 'Info', type: 'interview', camSpeaker: '0' } });
+  assert.equal(bad.status, 400);
+
+  const created = await api('POST', '/api/medias', { body: { itemId: itemA.id, title: 'Entrevista X', type: 'interview', camSpeaker: '2', presetSpeaker: '4' } });
+  assert.equal(created.status, 200);
+  const saved = queries.getMedia(created.json.mediaId);
+  assert.equal(saved.cam_speaker, 2);
+  assert.equal(saved.preset_speaker, 4);
+
+  // Edição sem os campos de enquadramento mantém CAM e preset
+  const kept = await api('PUT', `/api/medias/${saved.id}`, { body: { title: 'Teatro Y', type: 'theater' } });
+  assert.equal(kept.status, 200);
+  const after = queries.getMedia(saved.id);
+  assert.equal(after.type, 'theater');
+  assert.equal(after.cam_speaker, 2);
+  assert.equal(after.preset_speaker, 4);
+
+  // Campo vazio limpa o preset
+  await api('PUT', `/api/medias/${saved.id}`, { body: { presetSpeaker: '' } });
+  assert.equal(queries.getMedia(saved.id).preset_speaker, null);
 });
